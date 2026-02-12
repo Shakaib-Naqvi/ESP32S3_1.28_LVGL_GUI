@@ -5,10 +5,7 @@
 
 #include "ui.h"
 
-void ui_comp_dot_create_hook(lv_obj_t * comp)
+void time_in_hours(lv_event_t * e)
 {
-}
-
-void ui_comp_Time_create_hook(lv_obj_t * comp)
-{
+	// Your code here
 }

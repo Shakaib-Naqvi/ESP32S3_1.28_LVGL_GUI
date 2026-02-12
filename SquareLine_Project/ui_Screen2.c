@@ -6,19 +6,41 @@
 #include "ui.h"
 
 lv_obj_t * ui_Screen2 = NULL;
-lv_obj_t * ui_Spinner1 = NULL;
+lv_obj_t * ui_Container1 = NULL;
+lv_obj_t * ui_timehr = NULL;
+lv_obj_t * ui_timemin = NULL;
+lv_obj_t * ui_Container2 = NULL;
+lv_obj_t * ui_Image2 = NULL;
+lv_obj_t * ui_Image4 = NULL;
 // event funtions
 void ui_event_Screen2(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
 
+    if(event_code == LV_EVENT_SCREEN_LOADED) {
+        blinkdots_Animation(ui_Container2, 0);
+    }
     if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_BOTTOM) {
         lv_indev_wait_release(lv_indev_get_act());
         _ui_screen_change(&ui_Screen1, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_Screen1_screen_init);
     }
-    if(event_code == LV_EVENT_GESTURE &&  lv_indev_get_gesture_dir(lv_indev_get_act()) == LV_DIR_TOP) {
-        lv_indev_wait_release(lv_indev_get_act());
-        _ui_screen_change(&ui_Screen3, LV_SCR_LOAD_ANIM_FADE_ON, 500, 0, &ui_Screen3_screen_init);
+}
+
+void ui_event_timehr(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_VALUE_CHANGED) {
+        time_in_hours(e);
+    }
+}
+
+void ui_event_timemin(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+
+    if(event_code == LV_EVENT_VALUE_CHANGED) {
+        _ui_label_set_property(ui_timemin, _UI_LABEL_PROPERTY_TEXT, "00");
     }
 }
 
@@ -28,24 +50,69 @@ void ui_Screen2_screen_init(void)
 {
     ui_Screen2 = lv_obj_create(NULL);
     lv_obj_clear_flag(ui_Screen2, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_color(ui_Screen2, lv_color_hex(0x9BDDFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_Screen2, lv_color_hex(0x56D7F7), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Screen2, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_grad_color(ui_Screen2, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_main_stop(ui_Screen2, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_grad_stop(ui_Screen2, 247, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_grad_color(ui_Screen2, lv_color_hex(0xADF4F8), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_grad_dir(ui_Screen2, LV_GRAD_DIR_VER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_Spinner1 = lv_spinner_create(ui_Screen2, 1000, 90);
-    lv_obj_set_width(ui_Spinner1, 100);
-    lv_obj_set_height(ui_Spinner1, 100);
-    lv_obj_set_align(ui_Spinner1, LV_ALIGN_CENTER);
-    lv_obj_clear_flag(ui_Spinner1, LV_OBJ_FLAG_CLICKABLE);      /// Flags
-    lv_obj_set_style_arc_color(ui_Spinner1, lv_color_hex(0x3CCF3E), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_opa(ui_Spinner1, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_Container1 = lv_obj_create(ui_Screen2);
+    lv_obj_remove_style_all(ui_Container1);
+    lv_obj_set_width(ui_Container1, 172);
+    lv_obj_set_height(ui_Container1, 108);
+    lv_obj_set_align(ui_Container1, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_Container1, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
-    lv_obj_set_style_arc_color(ui_Spinner1, lv_color_hex(0x059110), LV_PART_INDICATOR | LV_STATE_DEFAULT);
-    lv_obj_set_style_arc_opa(ui_Spinner1, 255, LV_PART_INDICATOR | LV_STATE_DEFAULT);
+    ui_timehr = lv_label_create(ui_Container1);
+    lv_obj_set_width(ui_timehr, 64);
+    lv_obj_set_height(ui_timehr, LV_SIZE_CONTENT);    /// 20
+    lv_obj_set_x(ui_timehr, -38);
+    lv_obj_set_y(ui_timehr, 0);
+    lv_obj_set_align(ui_timehr, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_timehr, "00");
+    lv_obj_set_style_text_font(ui_timehr, &lv_font_montserrat_48, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_timemin = lv_label_create(ui_Container1);
+    lv_obj_set_width(ui_timemin, 64);
+    lv_obj_set_height(ui_timemin, LV_SIZE_CONTENT);    /// 20
+    lv_obj_set_x(ui_timemin, 40);
+    lv_obj_set_y(ui_timemin, 0);
+    lv_obj_set_align(ui_timemin, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_timemin, "00");
+    lv_obj_set_style_text_font(ui_timemin, &lv_font_montserrat_48, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_Container2 = lv_obj_create(ui_Screen2);
+    lv_obj_remove_style_all(ui_Container2);
+    lv_obj_set_width(ui_Container2, 11);
+    lv_obj_set_height(ui_Container2, 23);
+    lv_obj_set_x(ui_Container2, 0);
+    lv_obj_set_y(ui_Container2, -1);
+    lv_obj_set_align(ui_Container2, LV_ALIGN_CENTER);
+    lv_obj_clear_flag(ui_Container2, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+
+    ui_Image2 = lv_img_create(ui_Container2);
+    lv_img_set_src(ui_Image2, &ui_img_be9a715d0b0654b63c099dc9989a470c_png);
+    lv_obj_set_width(ui_Image2, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_Image2, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_Image2, 0);
+    lv_obj_set_y(ui_Image2, -6);
+    lv_obj_set_align(ui_Image2, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_Image2, LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
+    lv_obj_clear_flag(ui_Image2, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_img_set_zoom(ui_Image2, 40);
+
+    ui_Image4 = lv_img_create(ui_Container2);
+    lv_img_set_src(ui_Image4, &ui_img_be9a715d0b0654b63c099dc9989a470c_png);
+    lv_obj_set_width(ui_Image4, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_Image4, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_Image4, 0);
+    lv_obj_set_y(ui_Image4, 6);
+    lv_obj_set_align(ui_Image4, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_Image4, LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
+    lv_obj_clear_flag(ui_Image4, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_img_set_zoom(ui_Image4, 40);
+
+    lv_obj_add_event_cb(ui_timehr, ui_event_timehr, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_timemin, ui_event_timemin, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Screen2, ui_event_Screen2, LV_EVENT_ALL, NULL);
 
 }
@@ -56,6 +123,11 @@ void ui_Screen2_screen_destroy(void)
 
     // NULL screen variables
     ui_Screen2 = NULL;
-    ui_Spinner1 = NULL;
+    ui_Container1 = NULL;
+    ui_timehr = NULL;
+    ui_timemin = NULL;
+    ui_Container2 = NULL;
+    ui_Image2 = NULL;
+    ui_Image4 = NULL;
 
 }
