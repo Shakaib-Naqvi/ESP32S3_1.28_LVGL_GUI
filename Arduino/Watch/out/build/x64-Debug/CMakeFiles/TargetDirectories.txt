@@ -1,3 +1,0 @@
-E:/Shakaib/Shakaib/Work/ESP32S3_1.28/Watch/out/build/x64-Debug/CMakeFiles/ui.dir
-E:/Shakaib/Shakaib/Work/ESP32S3_1.28/Watch/out/build/x64-Debug/CMakeFiles/edit_cache.dir
-E:/Shakaib/Shakaib/Work/ESP32S3_1.28/Watch/out/build/x64-Debug/CMakeFiles/rebuild_cache.dir
