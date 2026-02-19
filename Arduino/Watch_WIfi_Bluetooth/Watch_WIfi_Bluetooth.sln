@@ -1,0 +1,35 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Watch_WIfi_Bluetooth", "Watch_WIfi_Bluetooth.vcxproj", "{71A9D65E-05AA-E761-9BD6-834BD0D1458F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|ARM = Debug|ARM
+		Debug|ARM64 = Debug|ARM64
+		Release|ARM = Release|ARM
+		Release|ARM64 = Release|ARM64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Debug|ARM.ActiveCfg = Debug|ARM
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Debug|ARM.Build.0 = Debug|ARM
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Debug|ARM.Deploy.0 = Debug|ARM
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Debug|ARM64.Build.0 = Debug|ARM64
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Debug|ARM64.Deploy.0 = Debug|ARM64
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM.ActiveCfg = Release|ARM
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM.Build.0 = Release|ARM
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM.Deploy.0 = Release|ARM
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM64.ActiveCfg = Release|ARM64
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM64.Build.0 = Release|ARM64
+		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM64.Deploy.0 = Release|ARM64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E4C8F360-E189-4D64-AE86-7BE05075F693}
+	EndGlobalSection
+EndGlobal
