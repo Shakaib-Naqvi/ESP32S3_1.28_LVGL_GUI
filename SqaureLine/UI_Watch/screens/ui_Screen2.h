@@ -16,17 +16,23 @@ extern void ui_Screen2_screen_destroy(void);
 extern void ui_event_Screen2(lv_event_t * e);
 extern lv_obj_t * ui_Screen2;
 extern lv_obj_t * ui_Container4;
-extern void ui_event_Image2(lv_event_t * e);
-extern lv_obj_t * ui_Image2;
-extern lv_obj_t * ui_Container7;
-extern lv_obj_t * ui_Label11;
 extern lv_obj_t * ui_Image9;
+extern lv_obj_t * ui_Container7;
+extern void ui_event_Container11(lv_event_t * e);
+extern lv_obj_t * ui_Container11;
+extern lv_obj_t * ui_Label11;
+extern void ui_event_brightness(lv_event_t * e);
+extern lv_obj_t * ui_brightness;
+extern void ui_event_Container15(lv_event_t * e);
 extern lv_obj_t * ui_Container15;
-extern void ui_event_Wifi(lv_event_t * e);
-extern lv_obj_t * ui_Wifi;
-extern void ui_event_Menu(lv_event_t * e);
-extern lv_obj_t * ui_Menu;
-extern lv_obj_t * ui_Home2;
+extern lv_obj_t * ui_Label12;
+extern void ui_event_about(lv_event_t * e);
+extern lv_obj_t * ui_about;
+extern void ui_event_Container19(lv_event_t * e);
+extern lv_obj_t * ui_Container19;
+extern lv_obj_t * ui_Label14;
+extern void ui_event_about1(lv_event_t * e);
+extern lv_obj_t * ui_about1;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

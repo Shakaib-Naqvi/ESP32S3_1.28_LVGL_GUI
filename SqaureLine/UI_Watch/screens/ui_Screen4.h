@@ -18,10 +18,6 @@ extern lv_obj_t * ui_Screen4;
 extern lv_obj_t * ui_Container10;
 extern void ui_event_Image17(lv_event_t * e);
 extern lv_obj_t * ui_Image17;
-extern lv_obj_t * ui_Container13;
-extern lv_obj_t * ui_Label9;
-extern lv_obj_t * ui_Label10;
-extern lv_obj_t * ui_Label15;
 extern lv_obj_t * ui_Container14;
 extern void ui_event_Setting(lv_event_t * e);
 extern lv_obj_t * ui_Setting;
@@ -29,6 +25,8 @@ extern lv_obj_t * ui_Home1;
 extern void ui_event_menu1(lv_event_t * e);
 extern lv_obj_t * ui_menu1;
 extern lv_obj_t * ui_Image22;
+extern void ui_event_brightness3(lv_event_t * e);
+extern lv_obj_t * ui_brightness3;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

@@ -17,25 +17,12 @@ extern void ui_event_Screen5(lv_event_t * e);
 extern lv_obj_t * ui_Screen5;
 extern void ui_event_Container9(lv_event_t * e);
 extern lv_obj_t * ui_Container9;
-extern lv_obj_t * ui_Image4;
-extern lv_obj_t * ui_Container11;
-extern void ui_event_Setting2(lv_event_t * e);
-extern lv_obj_t * ui_Setting2;
-extern lv_obj_t * ui_Home3;
-extern void ui_event_Wifi2(lv_event_t * e);
-extern lv_obj_t * ui_Wifi2;
 extern lv_obj_t * ui_Container12;
-extern void ui_event_wifi2(lv_event_t * e);
-extern lv_obj_t * ui_wifi2;
-extern lv_obj_t * ui_settings;
-extern lv_obj_t * ui_games;
-extern lv_obj_t * ui_games1;
+extern void ui_event_Image6(lv_event_t * e);
 extern lv_obj_t * ui_Image6;
-extern lv_obj_t * ui_Image11;
-extern lv_obj_t * ui_games2;
-extern lv_obj_t * ui_Image23;
-extern lv_obj_t * ui_Image25;
-extern lv_obj_t * ui_games3;
+extern lv_obj_t * ui_games1;
+extern void ui_event_home1(lv_event_t * e);
+extern lv_obj_t * ui_home1;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

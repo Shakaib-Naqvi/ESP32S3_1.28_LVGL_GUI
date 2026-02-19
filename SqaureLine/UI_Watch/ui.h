@@ -34,6 +34,8 @@ extern "C" {
 #include "screens/ui_Screen3.h"
 #include "screens/ui_Screen4.h"
 #include "screens/ui_Screen5.h"
+#include "screens/ui_Screen6.h"
+#include "screens/ui_Screen7.h"
 
 ///////////////////// VARIABLES ////////////////////
 
@@ -56,7 +58,19 @@ LV_IMG_DECLARE(
 LV_IMG_DECLARE(
     ui_img_menu_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/menu_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
 LV_IMG_DECLARE(
+    ui_img_light_mode_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/light_mode_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
+LV_IMG_DECLARE(
+    ui_img_info_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/info_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
+LV_IMG_DECLARE(
+    ui_img_alarm_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/alarm_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
+LV_IMG_DECLARE(
+    ui_img_timer_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/timer_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
+LV_IMG_DECLARE(
+    ui_img_bluetooth_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/bluetooth_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
+LV_IMG_DECLARE(
     ui_img_stadia_controller_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/stadia_controller_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
+LV_IMG_DECLARE(
+    ui_img_home_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
 
 // UI INIT
 void ui_init(void);

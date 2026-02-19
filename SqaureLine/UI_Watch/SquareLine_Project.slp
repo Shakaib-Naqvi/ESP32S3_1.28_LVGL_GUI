@@ -1,12 +1,12 @@
 {
-    "uiExportFolderPath": "",
-    "projectExportFolderPath": "",
-    "drive_stdio": "",
+    "uiExportFolderPath": "E:\\Shakaib\\Shakaib\\Work\\ESP32S3_1.28\\UI_Watch",
+    "projectExportFolderPath": "E:\\Shakaib\\Shakaib\\Work\\ESP32S3_1.28\\UI_Watch",
+    "drive_stdio": "-",
     "drive_stdio_path": "",
-    "drive_posix": "",
+    "drive_posix": "-",
     "drive_posix_path": "",
-    "drive_win32": "",
+    "drive_win32": "-",
     "drive_win32_path": "",
-    "drive_fatfs": "",
+    "drive_fatfs": "-",
     "drive_fatfs_path": ""
 }
