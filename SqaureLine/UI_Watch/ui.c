@@ -29,8 +29,6 @@ lv_obj_t * ui____initial_actions0;
 
 void ui_init(void)
 {
-    LV_EVENT_GET_COMP_CHILD = lv_event_register_id();
-
     lv_disp_t * dispp = lv_disp_get_default();
     lv_theme_t * theme = lv_theme_default_init(dispp, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_RED),
                                                true, LV_FONT_DEFAULT);
@@ -42,6 +40,7 @@ void ui_init(void)
     ui_Screen5_screen_init();
     ui_Screen6_screen_init();
     ui_Screen7_screen_init();
+    ui_Screen8_screen_init();
     ui____initial_actions0 = lv_obj_create(NULL);
     lv_disp_load_scr(ui_Screen1);
 }
@@ -55,4 +54,5 @@ void ui_destroy(void)
     ui_Screen5_screen_destroy();
     ui_Screen6_screen_destroy();
     ui_Screen7_screen_destroy();
+    ui_Screen8_screen_destroy();
 }

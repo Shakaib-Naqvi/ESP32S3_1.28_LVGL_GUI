@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Watch_WIfi_Bluetooth", "Watch_WIfi_Bluetooth.vcxproj", "{71A9D65E-05AA-E761-9BD6-834BD0D1458F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Smart_Watch", "..\Smart_Watch\Smart_Watch.vcxproj", "{0EE97D7E-7B16-2388-0B44-6D652B35FC66}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -25,6 +27,18 @@ Global
 		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM64.ActiveCfg = Release|ARM64
 		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM64.Build.0 = Release|ARM64
 		{71A9D65E-05AA-E761-9BD6-834BD0D1458F}.Release|ARM64.Deploy.0 = Release|ARM64
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Debug|ARM.ActiveCfg = Debug|ARM
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Debug|ARM.Build.0 = Debug|ARM
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Debug|ARM.Deploy.0 = Debug|ARM
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Debug|ARM64.Build.0 = Debug|ARM64
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Debug|ARM64.Deploy.0 = Debug|ARM64
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Release|ARM.ActiveCfg = Release|ARM
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Release|ARM.Build.0 = Release|ARM
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Release|ARM.Deploy.0 = Release|ARM
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Release|ARM64.ActiveCfg = Release|ARM64
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Release|ARM64.Build.0 = Release|ARM64
+		{0EE97D7E-7B16-2388-0B44-6D652B35FC66}.Release|ARM64.Deploy.0 = Release|ARM64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

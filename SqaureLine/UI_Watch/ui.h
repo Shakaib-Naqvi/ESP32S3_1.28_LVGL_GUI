@@ -23,19 +23,18 @@ extern "C" {
 #endif
 
 #include "ui_helpers.h"
-#include "components/ui_comp.h"
-#include "components/ui_comp_hook.h"
 #include "ui_events.h"
 
 ///////////////////// SCREENS ////////////////////
 
-#include "screens/ui_Screen1.h"
-#include "screens/ui_Screen2.h"
-#include "screens/ui_Screen3.h"
-#include "screens/ui_Screen4.h"
-#include "screens/ui_Screen5.h"
-#include "screens/ui_Screen6.h"
-#include "screens/ui_Screen7.h"
+#include "ui_Screen1.h"
+#include "ui_Screen2.h"
+#include "ui_Screen3.h"
+#include "ui_Screen4.h"
+#include "ui_Screen5.h"
+#include "ui_Screen6.h"
+#include "ui_Screen7.h"
+#include "ui_Screen8.h"
 
 ///////////////////// VARIABLES ////////////////////
 
@@ -69,8 +68,6 @@ LV_IMG_DECLARE(
     ui_img_bluetooth_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/bluetooth_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
 LV_IMG_DECLARE(
     ui_img_stadia_controller_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/stadia_controller_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
-LV_IMG_DECLARE(
-    ui_img_home_24dp_e3e3e3_fill0_wght400_grad0_opsz24_png);    // assets/home_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.png
 
 // UI INIT
 void ui_init(void);
