@@ -11,8 +11,8 @@ const char* ssid     = "eSpark Consulting";
 const char* password = "47356880";
 
 const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 0;
-const int   daylightOffset_sec = 3600;
+const long  gmtOffset_sec = 5 * 60 * 60;
+const int   daylightOffset_sec = 0;
 
 void printLocalTime() {
     struct tm timeinfo;

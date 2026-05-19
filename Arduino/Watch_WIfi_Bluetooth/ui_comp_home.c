@@ -4,6 +4,8 @@
 // Project name: SquareLine_Project
 
 #include "ui.h"
+#include "ui_comp.h"
+#include "ui_comp_hook.h"
 
 void ui_event_comp_Home_Home(lv_event_t * e)
 {

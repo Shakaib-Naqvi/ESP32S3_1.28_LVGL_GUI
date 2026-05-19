@@ -33,6 +33,35 @@ static lv_color_t buf2[screenWidth * 60];
 TFT_eSPI tft = TFT_eSPI(screenWidth, screenHeight); /* TFT instance */
 CST816S touch(6, 7, 13, 5);	// sda, scl, rst, irq
 
+void updateWatchTime()
+{
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo, 5)) {
+        return;
+    }
+
+    char hour[3];
+    char minute[3];
+    char weekday[10];
+    char day[4];
+    char month[4];
+    char year[5];
+
+    strftime(hour, sizeof(hour), "%H", &timeinfo);
+    strftime(minute, sizeof(minute), "%M", &timeinfo);
+    strftime(weekday, sizeof(weekday), "%A", &timeinfo);
+    strftime(day, sizeof(day), "%d", &timeinfo);
+    strftime(month, sizeof(month), "%b", &timeinfo);
+    strftime(year, sizeof(year), "%Y", &timeinfo);
+
+    if (ui_Label2 != NULL) lv_label_set_text(ui_Label2, hour);
+    if (ui_Label1 != NULL) lv_label_set_text(ui_Label1, minute);
+    if (ui_Label6 != NULL) lv_label_set_text(ui_Label6, weekday);
+    if (ui_Label5 != NULL) lv_label_set_text(ui_Label5, day);
+    if (ui_Label3 != NULL) lv_label_set_text(ui_Label3, month);
+    if (ui_Label7 != NULL) lv_label_set_text(ui_Label7, year);
+}
+
 #if LV_USE_LOG != 0
 /* Serial debugging */
 void my_print(const char * buf)
@@ -184,14 +213,16 @@ void setup()
     Serial.println(ssid);
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+        lv_timer_handler();
+        delay(500);
+        Serial.print(".");
     }
     Serial.println("");
     Serial.println("WiFi connected.");
 
     // Init and get the time
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+    updateWatchTime();
     printLocalTime();
     
     Serial.println( "Setup done" );
@@ -202,8 +233,8 @@ void loop()
 {
     lv_timer_handler(); /* let the GUI do its work */
     delay( 5 );
-    /*if (millis() - last_fetch >= 5000) {
-        printLocalTime();
+    if (millis() - last_fetch >= 1000) {
+        updateWatchTime();
         last_fetch = millis();
-    }*/
+    }
 }
