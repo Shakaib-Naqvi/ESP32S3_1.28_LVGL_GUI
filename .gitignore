@@ -46,3 +46,12 @@ Platformio/esp32s3_waveshare_first_project/ui_Screen3.c
 Platformio/esp32s3_waveshare_first_project/ui_Screen3.h
 Platformio/esp32s3_waveshare_first_project/wifi_connection.c
 Platformio/esp32s3_waveshare_first_project/wifi_connection.h
+Arduino/Watch_WIfi_Bluetooth/.b/waveshare_esp32s3_touch_lcd_128/lib00e/lvgl/core/lv_obj_pos.c.d
+*.o
+*.d
+*.vlw
+/Arduino/Watch_WIfi_Bluetooth/.ld
+/Arduino/Watch_WIfi_Bluetooth/.vs
+/Arduino/Watch_WIfi_Bluetooth/.b
+/Arduino/Smart_Watch/.vs
+/SquareLine/UI_Watch/cache
