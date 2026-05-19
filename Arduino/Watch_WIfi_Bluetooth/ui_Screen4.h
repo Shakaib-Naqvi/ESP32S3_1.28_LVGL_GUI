@@ -22,6 +22,15 @@ extern lv_obj_t * ui_Image22;
 extern void ui_event_Container14(lv_event_t * e);
 extern lv_obj_t * ui_Container14;
 extern lv_obj_t * ui_Label10;
+extern lv_obj_t * ui_WifiStatus;
+extern lv_obj_t * ui_WifiOption1;
+extern lv_obj_t * ui_WifiOptionLabel1;
+extern lv_obj_t * ui_WifiOption2;
+extern lv_obj_t * ui_WifiOptionLabel2;
+extern lv_obj_t * ui_WifiOption3;
+extern lv_obj_t * ui_WifiOptionLabel3;
+extern lv_obj_t * ui_WifiOption4;
+extern lv_obj_t * ui_WifiOptionLabel4;
 extern void ui_event_home4(lv_event_t * e);
 extern lv_obj_t * ui_home4;
 // CUSTOM VARIABLES

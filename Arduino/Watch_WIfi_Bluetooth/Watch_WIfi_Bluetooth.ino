@@ -62,6 +62,131 @@ void updateWatchTime()
     if (ui_Label7 != NULL) lv_label_set_text(ui_Label7, year);
 }
 
+static String scannedWifiSsids[4];
+
+static lv_obj_t * wifiOptionObj(uint8_t index)
+{
+    switch (index) {
+        case 0: return ui_WifiOption1;
+        case 1: return ui_WifiOption2;
+        case 2: return ui_WifiOption3;
+        case 3: return ui_WifiOption4;
+        default: return NULL;
+    }
+}
+
+static lv_obj_t * wifiOptionLabel(uint8_t index)
+{
+    switch (index) {
+        case 0: return ui_WifiOptionLabel1;
+        case 1: return ui_WifiOptionLabel2;
+        case 2: return ui_WifiOptionLabel3;
+        case 3: return ui_WifiOptionLabel4;
+        default: return NULL;
+    }
+}
+
+static void setWifiStatus(const char * text)
+{
+    if (ui_WifiStatus != NULL) {
+        lv_label_set_text(ui_WifiStatus, text);
+    }
+}
+
+static void clearWifiOptions()
+{
+    for (uint8_t i = 0; i < 4; i++) {
+        scannedWifiSsids[i] = "";
+
+        lv_obj_t * option = wifiOptionObj(i);
+        lv_obj_t * label = wifiOptionLabel(i);
+        if (option != NULL) lv_obj_add_flag(option, LV_OBJ_FLAG_HIDDEN);
+        if (label != NULL) lv_label_set_text(label, "");
+    }
+}
+
+static void setWifiOption(uint8_t index, const String & ssid, int32_t rssi)
+{
+    scannedWifiSsids[index] = ssid;
+
+    lv_obj_t * option = wifiOptionObj(index);
+    lv_obj_t * label = wifiOptionLabel(index);
+    if (option == NULL || label == NULL) return;
+
+    String displayText = ssid + " (" + String(rssi) + "dBm)";
+    lv_label_set_text(label, displayText.c_str());
+    lv_obj_clear_flag(option, LV_OBJ_FLAG_HIDDEN);
+}
+
+extern "C" void scan_wifi_networks_ui(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    clearWifiOptions();
+    if (ui_Label10 != NULL) lv_label_set_text(ui_Label10, "Wait");
+    setWifiStatus("Scanning...");
+    lv_timer_handler();
+
+    WiFi.mode(WIFI_STA);
+    int networkCount = WiFi.scanNetworks(false, true);
+
+    if (networkCount <= 0) {
+        if (ui_Label10 != NULL) lv_label_set_text(ui_Label10, "Scan");
+        setWifiStatus("No WiFi found");
+        WiFi.scanDelete();
+        return;
+    }
+
+    int shownCount = networkCount < 4 ? networkCount : 4;
+    for (int i = 0; i < shownCount; i++) {
+        setWifiOption(i, WiFi.SSID(i), WiFi.RSSI(i));
+    }
+
+    if (ui_Label10 != NULL) lv_label_set_text(ui_Label10, "Rescan");
+    setWifiStatus("Select network");
+    WiFi.scanDelete();
+}
+
+extern "C" void connect_wifi_network_ui(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    uint8_t index = (uint32_t)lv_event_get_user_data(e);
+    if (index >= 4 || scannedWifiSsids[index].length() == 0) return;
+
+    String selectedSsid = scannedWifiSsids[index];
+    if (ui_Label10 != NULL) lv_label_set_text(ui_Label10, "Wait");
+    setWifiStatus("Connecting...");
+    lv_timer_handler();
+
+    Serial.print("Connecting to ");
+    Serial.println(selectedSsid);
+
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(selectedSsid.c_str(), password);
+
+    unsigned long startTime = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startTime < 15000) {
+        lv_timer_handler();
+        delay(100);
+        Serial.print(".");
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("");
+        Serial.println("WiFi connected.");
+        setWifiStatus("Connected");
+        if (ui_Label10 != NULL) lv_label_set_text(ui_Label10, "Scan");
+        configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+        updateWatchTime();
+    } else {
+        Serial.println("");
+        Serial.println("WiFi connect failed.");
+        setWifiStatus("Connect failed");
+        if (ui_Label10 != NULL) lv_label_set_text(ui_Label10, "Rescan");
+    }
+}
+
 #if LV_USE_LOG != 0
 /* Serial debugging */
 void my_print(const char * buf)

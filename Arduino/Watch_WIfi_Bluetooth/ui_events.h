@@ -10,6 +10,9 @@
 extern "C" {
 #endif
 
+void scan_wifi_networks_ui(lv_event_t * e);
+void connect_wifi_network_ui(lv_event_t * e);
+
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif
