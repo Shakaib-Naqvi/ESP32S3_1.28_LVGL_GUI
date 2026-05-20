@@ -100,6 +100,28 @@ static void updateBatteryReading()
     batteryPercent = voltageToBatteryPercent(batteryVoltage);
 }
 
+static void updateBatteryUi()
+{
+    updateBatteryReading();
+
+    if (ui_Arc1 != NULL) {
+        lv_arc_set_value(ui_Arc1, batteryPercent);
+        lv_color_t arcColor = lv_color_hex(0x11FF00);
+        if (batteryPercent <= 20) {
+            arcColor = lv_color_hex(0xFF3B30);
+        } else if (batteryPercent <= 45) {
+            arcColor = lv_color_hex(0xFFD60A);
+        }
+        lv_obj_set_style_arc_color(ui_Arc1, arcColor, LV_PART_INDICATOR);
+    }
+
+    if (ui_Label8 != NULL) {
+        char batteryText[18];
+        lv_snprintf(batteryText, sizeof(batteryText), "%u%% %.2fV", batteryPercent, batteryVoltage);
+        lv_label_set_text(ui_Label8, batteryText);
+    }
+}
+
 static const uint8_t WIFI_SCAN_MAX_RESULTS = 20;
 static String scannedWifiSsids[WIFI_SCAN_MAX_RESULTS];
 static int32_t scannedWifiRssi[WIFI_SCAN_MAX_RESULTS];
@@ -1008,7 +1030,7 @@ void setup()
     setupPerformanceOverlay();
     uiLastPerfMillis = millis();
     randomSeed((uint32_t)micros());
-    updateBatteryReading();
+    updateBatteryUi();
 
     Serial.print("Connecting to ");
     Serial.println(ssid);
@@ -1045,7 +1067,7 @@ void loop()
     delay(UI_LOOP_DELAY_MS);
     if (millis() - last_fetch >= 1000) {
         updateWatchTime();
-        updateBatteryReading();
+        updateBatteryUi();
         last_fetch = millis();
     }
 }
