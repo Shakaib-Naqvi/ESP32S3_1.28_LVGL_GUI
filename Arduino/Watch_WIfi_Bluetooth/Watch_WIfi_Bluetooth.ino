@@ -8,6 +8,7 @@
 #include <demos/lv_demos.h>
 #include <WiFi.h>
 #include "time.h"
+#include <string.h>
 
 #include "CST816S.h"
 #include "ui.h"
@@ -76,6 +77,14 @@ static lv_obj_t * wifiPasswordTextArea = NULL;
 static lv_obj_t * wifiPasswordKeyboard = NULL;
 
 static void closeWifiPasswordOverlay();
+
+static lv_obj_t * game2048Screen = NULL;
+static lv_obj_t * game2048BoardObj = NULL;
+static lv_obj_t * game2048ScoreLabel = NULL;
+static lv_obj_t * game2048StatusLabel = NULL;
+static lv_obj_t * game2048Tiles[4][4];
+static uint16_t game2048Board[4][4];
+static uint32_t game2048Score = 0;
 
 static lv_obj_t * wifiOptionObj(uint8_t index)
 {
@@ -482,6 +491,291 @@ extern "C" void connect_wifi_network_ui(lv_event_t * e)
     showWifiPasswordOverlay();
 }
 
+static lv_color_t game2048TileColor(uint16_t value)
+{
+    switch (value) {
+        case 0: return lv_color_hex(0x222A30);
+        case 2: return lv_color_hex(0xEEE4DA);
+        case 4: return lv_color_hex(0xEDE0C8);
+        case 8: return lv_color_hex(0xF2B179);
+        case 16: return lv_color_hex(0xF59563);
+        case 32: return lv_color_hex(0xF67C5F);
+        case 64: return lv_color_hex(0xF65E3B);
+        case 128: return lv_color_hex(0xEDCF72);
+        case 256: return lv_color_hex(0xEDCC61);
+        case 512: return lv_color_hex(0xEDC850);
+        case 1024: return lv_color_hex(0xEDC53F);
+        default: return lv_color_hex(0xEDC22E);
+    }
+}
+
+static bool game2048HasMoves()
+{
+    for (uint8_t r = 0; r < 4; r++) {
+        for (uint8_t c = 0; c < 4; c++) {
+            if (game2048Board[r][c] == 0) return true;
+            if (c < 3 && game2048Board[r][c] == game2048Board[r][c + 1]) return true;
+            if (r < 3 && game2048Board[r][c] == game2048Board[r + 1][c]) return true;
+        }
+    }
+    return false;
+}
+
+static void game2048UpdateUi()
+{
+    char scoreText[24];
+    lv_snprintf(scoreText, sizeof(scoreText), "Score %lu", (unsigned long)game2048Score);
+    if (game2048ScoreLabel != NULL) lv_label_set_text(game2048ScoreLabel, scoreText);
+
+    for (uint8_t r = 0; r < 4; r++) {
+        for (uint8_t c = 0; c < 4; c++) {
+            lv_obj_t * tile = game2048Tiles[r][c];
+            if (tile == NULL) continue;
+
+            uint16_t value = game2048Board[r][c];
+            lv_obj_set_style_bg_color(tile, game2048TileColor(value), LV_PART_MAIN);
+            lv_obj_set_style_text_color(tile, value <= 4 ? lv_color_hex(0x3C3530) : lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+
+            char valueText[8];
+            if (value == 0) {
+                valueText[0] = '\0';
+            } else {
+                lv_snprintf(valueText, sizeof(valueText), "%u", value);
+            }
+            lv_label_set_text(tile, valueText);
+        }
+    }
+
+    if (game2048StatusLabel != NULL) {
+        lv_label_set_text(game2048StatusLabel, game2048HasMoves() ? "Swipe" : "Game Over");
+    }
+}
+
+static void game2048AddRandomTile()
+{
+    uint8_t emptyCells[16];
+    uint8_t emptyCount = 0;
+
+    for (uint8_t r = 0; r < 4; r++) {
+        for (uint8_t c = 0; c < 4; c++) {
+            if (game2048Board[r][c] == 0) {
+                emptyCells[emptyCount++] = (r * 4) + c;
+            }
+        }
+    }
+
+    if (emptyCount == 0) return;
+
+    uint8_t picked = emptyCells[random(emptyCount)];
+    game2048Board[picked / 4][picked % 4] = random(10) == 0 ? 4 : 2;
+}
+
+static bool game2048SlideLine(uint16_t line[4])
+{
+    uint16_t original[4];
+    uint16_t compacted[4] = {0, 0, 0, 0};
+    uint16_t merged[4] = {0, 0, 0, 0};
+    uint8_t compactedCount = 0;
+    uint8_t mergedCount = 0;
+
+    for (uint8_t i = 0; i < 4; i++) {
+        original[i] = line[i];
+        if (line[i] != 0) compacted[compactedCount++] = line[i];
+    }
+
+    for (uint8_t i = 0; i < compactedCount; i++) {
+        if (i + 1 < compactedCount && compacted[i] == compacted[i + 1]) {
+            merged[mergedCount] = compacted[i] * 2;
+            game2048Score += merged[mergedCount];
+            mergedCount++;
+            i++;
+        } else {
+            merged[mergedCount++] = compacted[i];
+        }
+    }
+
+    bool changed = false;
+    for (uint8_t i = 0; i < 4; i++) {
+        line[i] = merged[i];
+        if (line[i] != original[i]) changed = true;
+    }
+
+    return changed;
+}
+
+static bool game2048Move(lv_dir_t direction)
+{
+    bool changed = false;
+    uint16_t line[4];
+
+    for (uint8_t i = 0; i < 4; i++) {
+        for (uint8_t j = 0; j < 4; j++) {
+            if (direction == LV_DIR_LEFT) line[j] = game2048Board[i][j];
+            else if (direction == LV_DIR_RIGHT) line[j] = game2048Board[i][3 - j];
+            else if (direction == LV_DIR_TOP) line[j] = game2048Board[j][i];
+            else line[j] = game2048Board[3 - j][i];
+        }
+
+        bool lineChanged = game2048SlideLine(line);
+        changed = changed || lineChanged;
+
+        for (uint8_t j = 0; j < 4; j++) {
+            if (direction == LV_DIR_LEFT) game2048Board[i][j] = line[j];
+            else if (direction == LV_DIR_RIGHT) game2048Board[i][3 - j] = line[j];
+            else if (direction == LV_DIR_TOP) game2048Board[j][i] = line[j];
+            else game2048Board[3 - j][i] = line[j];
+        }
+    }
+
+    if (changed) {
+        game2048AddRandomTile();
+        game2048UpdateUi();
+    }
+
+    return changed;
+}
+
+static void game2048Reset()
+{
+    for (uint8_t r = 0; r < 4; r++) {
+        for (uint8_t c = 0; c < 4; c++) {
+            game2048Board[r][c] = 0;
+        }
+    }
+
+    game2048Score = 0;
+    game2048AddRandomTile();
+    game2048AddRandomTile();
+    game2048UpdateUi();
+}
+
+static void game2048CloseEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    lv_obj_t * oldScreen = game2048Screen;
+    game2048Screen = NULL;
+    game2048BoardObj = NULL;
+    game2048ScoreLabel = NULL;
+    game2048StatusLabel = NULL;
+    memset(game2048Tiles, 0, sizeof(game2048Tiles));
+
+    lv_scr_load_anim(ui_Screen5, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
+    if (oldScreen != NULL) lv_obj_del_async(oldScreen);
+}
+
+static void game2048ResetEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) {
+        game2048Reset();
+    }
+}
+
+static void game2048GestureEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_GESTURE || !game2048HasMoves()) return;
+
+    lv_dir_t direction = lv_indev_get_gesture_dir(lv_indev_get_act());
+    if (direction == LV_DIR_LEFT || direction == LV_DIR_RIGHT || direction == LV_DIR_TOP || direction == LV_DIR_BOTTOM) {
+        lv_indev_wait_release(lv_indev_get_act());
+        game2048Move(direction);
+    }
+}
+
+static void show2048Game(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    if (game2048Screen != NULL) {
+        lv_scr_load_anim(game2048Screen, LV_SCR_LOAD_ANIM_FADE_ON, 80, 0, false);
+        return;
+    }
+
+    game2048Screen = lv_obj_create(NULL);
+    lv_obj_clear_flag(game2048Screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(game2048Screen, game2048GestureEvent, LV_EVENT_ALL, NULL);
+    lv_obj_set_style_bg_color(game2048Screen, lv_color_hex(0x101820), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(game2048Screen, lv_color_hex(0x2C3742), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(game2048Screen, LV_GRAD_DIR_VER, LV_PART_MAIN);
+
+    lv_obj_t * closeBtn = lv_btn_create(game2048Screen);
+    lv_obj_set_size(closeBtn, 28, 28);
+    lv_obj_align(closeBtn, LV_ALIGN_TOP_LEFT, 52, 22);
+    lv_obj_set_style_radius(closeBtn, 14, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(closeBtn, lv_color_hex(0x3C4650), LV_PART_MAIN);
+    lv_obj_add_event_cb(closeBtn, game2048CloseEvent, LV_EVENT_ALL, NULL);
+    lv_obj_t * closeLabel = lv_label_create(closeBtn);
+    lv_label_set_text(closeLabel, LV_SYMBOL_CLOSE);
+    lv_obj_center(closeLabel);
+
+    lv_obj_t * resetBtn = lv_btn_create(game2048Screen);
+    lv_obj_set_size(resetBtn, 28, 28);
+    lv_obj_align(resetBtn, LV_ALIGN_TOP_RIGHT, -52, 22);
+    lv_obj_set_style_radius(resetBtn, 14, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(resetBtn, lv_color_hex(0x3C4650), LV_PART_MAIN);
+    lv_obj_add_event_cb(resetBtn, game2048ResetEvent, LV_EVENT_ALL, NULL);
+    lv_obj_t * resetLabel = lv_label_create(resetBtn);
+    lv_label_set_text(resetLabel, LV_SYMBOL_REFRESH);
+    lv_obj_center(resetLabel);
+
+    lv_obj_t * title = lv_label_create(game2048Screen);
+    lv_obj_set_width(title, 120);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
+    lv_label_set_text(title, "2048");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
+
+    game2048ScoreLabel = lv_label_create(game2048Screen);
+    lv_obj_set_width(game2048ScoreLabel, 100);
+    lv_obj_align(game2048ScoreLabel, LV_ALIGN_TOP_MID, 0, 36);
+    lv_obj_set_style_text_color(game2048ScoreLabel, lv_color_hex(0xC9D6DF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(game2048ScoreLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(game2048ScoreLabel, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    game2048StatusLabel = lv_label_create(game2048Screen);
+    lv_obj_set_width(game2048StatusLabel, 100);
+    lv_obj_align(game2048StatusLabel, LV_ALIGN_BOTTOM_MID, 0, -7);
+    lv_obj_set_style_text_color(game2048StatusLabel, lv_color_hex(0xC9D6DF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(game2048StatusLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(game2048StatusLabel, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    game2048BoardObj = lv_obj_create(game2048Screen);
+    lv_obj_remove_style_all(game2048BoardObj);
+    lv_obj_set_size(game2048BoardObj, 154, 154);
+    lv_obj_align(game2048BoardObj, LV_ALIGN_CENTER, 0, 24);
+    lv_obj_clear_flag(game2048BoardObj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_event_cb(game2048BoardObj, game2048GestureEvent, LV_EVENT_ALL, NULL);
+    lv_obj_set_style_bg_color(game2048BoardObj, lv_color_hex(0x141A20), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(game2048BoardObj, 255, LV_PART_MAIN);
+    lv_obj_set_style_radius(game2048BoardObj, 10, LV_PART_MAIN);
+
+    for (uint8_t r = 0; r < 4; r++) {
+        for (uint8_t c = 0; c < 4; c++) {
+            game2048Tiles[r][c] = lv_label_create(game2048BoardObj);
+            lv_obj_set_size(game2048Tiles[r][c], 34, 34);
+            lv_obj_set_pos(game2048Tiles[r][c], 7 + (c * 37), 7 + (r * 37));
+            lv_label_set_text(game2048Tiles[r][c], "");
+            lv_obj_set_style_radius(game2048Tiles[r][c], 6, LV_PART_MAIN);
+            lv_obj_set_style_bg_opa(game2048Tiles[r][c], 255, LV_PART_MAIN);
+            lv_obj_set_style_text_align(game2048Tiles[r][c], LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+            lv_obj_set_style_text_font(game2048Tiles[r][c], &lv_font_montserrat_14, LV_PART_MAIN);
+            lv_obj_set_style_pad_top(game2048Tiles[r][c], 8, LV_PART_MAIN);
+        }
+    }
+
+    game2048Reset();
+    lv_scr_load_anim(game2048Screen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 180, 0, false);
+}
+
+static void setupGameScreenInteractions()
+{
+    if (ui_games1 == NULL) return;
+
+    lv_obj_add_flag(ui_games1, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(ui_games1, show2048Game, LV_EVENT_ALL, NULL);
+}
+
 #if LV_USE_LOG != 0
 /* Serial debugging */
 void my_print(const char * buf)
@@ -629,6 +923,8 @@ void setup()
     // lv_demo_stress();
     ui_init();
     styleWifiList();
+    setupGameScreenInteractions();
+    randomSeed((uint32_t)micros());
 
     Serial.print("Connecting to ");
     Serial.println(ssid);
