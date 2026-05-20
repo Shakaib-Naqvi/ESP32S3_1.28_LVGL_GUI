@@ -22,6 +22,10 @@
 #define EXAMPLE_LVGL_TICK_PERIOD_MS    2
 #define UI_LOOP_DELAY_MS                2
 #define UI_PERF_UPDATE_MS               1000
+#define BAT_ADC_PIN                     1
+#define BAT_ADC_DIVIDER_RATIO           3.0f
+#define BATTERY_MIN_VOLTAGE             3.20f
+#define BATTERY_MAX_VOLTAGE             4.20f
 
 /*Change to your screen resolution*/
 static const uint16_t screenWidth  = 240;
@@ -35,6 +39,8 @@ static lv_color_t buf2[screenWidth * 60];
 
 TFT_eSPI tft = TFT_eSPI(screenWidth, screenHeight); /* TFT instance */
 CST816S touch(6, 7, 13, 5);	// sda, scl, rst, irq
+static float batteryVoltage = 0.0f;
+static uint8_t batteryPercent = 0;
 
 void updateWatchTime()
 {
@@ -63,6 +69,35 @@ void updateWatchTime()
     if (ui_Label5 != NULL) lv_label_set_text(ui_Label5, day);
     if (ui_Label3 != NULL) lv_label_set_text(ui_Label3, month);
     if (ui_Label7 != NULL) lv_label_set_text(ui_Label7, year);
+}
+
+static uint8_t voltageToBatteryPercent(float voltage)
+{
+    if (voltage <= BATTERY_MIN_VOLTAGE) return 0;
+    if (voltage >= BATTERY_MAX_VOLTAGE) return 100;
+
+    return (uint8_t)(((voltage - BATTERY_MIN_VOLTAGE) * 100.0f) /
+                     (BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE));
+}
+
+static float readBatteryVoltage()
+{
+    const uint8_t samples = 12;
+    uint32_t millivolts = 0;
+
+    for (uint8_t i = 0; i < samples; i++) {
+        millivolts += analogReadMilliVolts(BAT_ADC_PIN);
+        delay(1);
+    }
+
+    float adcVoltage = (millivolts / (float)samples) / 1000.0f;
+    return adcVoltage * BAT_ADC_DIVIDER_RATIO;
+}
+
+static void updateBatteryReading()
+{
+    batteryVoltage = readBatteryVoltage();
+    batteryPercent = voltageToBatteryPercent(batteryVoltage);
 }
 
 static const uint8_t WIFI_SCAN_MAX_RESULTS = 20;
@@ -910,6 +945,8 @@ void setup()
     // uint16_t calData[5] = { 275, 3620, 264, 3532, 1 };
     // tft.setTouch( calData );
     touch.begin();
+    analogReadResolution(12);
+    analogSetPinAttenuation(BAT_ADC_PIN, ADC_11db);
 
     lv_disp_draw_buf_init( &draw_buf, buf1, buf2, screenWidth * screenHeight / 10 );
 
@@ -971,6 +1008,7 @@ void setup()
     setupPerformanceOverlay();
     uiLastPerfMillis = millis();
     randomSeed((uint32_t)micros());
+    updateBatteryReading();
 
     Serial.print("Connecting to ");
     Serial.println(ssid);
@@ -1007,6 +1045,7 @@ void loop()
     delay(UI_LOOP_DELAY_MS);
     if (millis() - last_fetch >= 1000) {
         updateWatchTime();
+        updateBatteryReading();
         last_fetch = millis();
     }
 }
