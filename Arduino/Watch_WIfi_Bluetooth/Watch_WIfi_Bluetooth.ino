@@ -26,6 +26,9 @@
 #define UI_LOOP_DELAY_MS                1
 #define UI_PERF_UPDATE_MS               1000
 #define LVGL_DRAW_BUFFER_LINES          60
+#define TIME_UPDATE_MS                  1000
+#define BATTERY_UPDATE_MS               5000
+#define BATTERY_ADC_SAMPLES             8
 #define BAT_ADC_PIN                     1
 #define BAT_ADC_UNIT                    ADC_UNIT_1
 #define BAT_ADC_CHANNEL                 ADC_CHANNEL_0
@@ -224,11 +227,10 @@ static float readBatteryVoltage()
         return 0.0f;
     }
 
-    const uint8_t samples = 12;
     uint32_t millivolts = 0;
     uint8_t validSamples = 0;
 
-    for (uint8_t i = 0; i < samples; i++) {
+    for (uint8_t i = 0; i < BATTERY_ADC_SAMPLES; i++) {
         int adcMillivolts = 0;
         esp_err_t result = ESP_FAIL;
 
@@ -245,7 +247,6 @@ static float readBatteryVoltage()
             millivolts += adcMillivolts;
             validSamples++;
         }
-        delay(1);
     }
 
     if (validSamples == 0) return 0.0f;
@@ -267,7 +268,7 @@ static void updateBatteryUi()
 
     if (ui_Arc1 != NULL) {
         lv_arc_set_value(ui_Arc1, batteryPercent);
-        lv_color_t arcColor = lv_color_hex(0x11FF00);
+        lv_color_t arcColor = lv_color_hex(0x4EF5B1);
         if (batteryPercent <= 20) {
             arcColor = lv_color_hex(0xFF3B30);
         } else if (batteryPercent <= 45) {
@@ -314,6 +315,145 @@ static lv_obj_t * uiPerfLabel = NULL;
 static uint32_t uiFlushCount = 0;
 static uint32_t uiLastPerfMillis = 0;
 static uint32_t uiLastFlushCount = 0;
+
+static void themeRoundBackground(lv_obj_t * obj)
+{
+    if (obj == NULL) return;
+
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0x010409), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(obj, lv_color_hex(0x14283A), LV_PART_MAIN);
+    lv_obj_set_style_bg_main_stop(obj, 0, LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_stop(obj, 240, LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(obj, LV_GRAD_DIR_VER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_color(obj, lv_color_hex(0x235168), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(obj, 150, LV_PART_MAIN);
+}
+
+static void themeGlassButton(lv_obj_t * obj)
+{
+    if (obj == NULL) return;
+
+    lv_obj_set_style_radius(obj, 12, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0x1D2B36), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(obj, lv_color_hex(0x405867), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(obj, LV_GRAD_DIR_VER, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(obj, 238, LV_PART_MAIN);
+    lv_obj_set_style_border_color(obj, lv_color_hex(0x6DE6FF), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(obj, 120, LV_PART_MAIN);
+    lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0x16212B), LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_bg_grad_color(obj, lv_color_hex(0x2C3B47), LV_PART_MAIN | LV_STATE_PRESSED);
+    lv_obj_set_style_bg_opa(obj, 255, LV_PART_MAIN | LV_STATE_PRESSED);
+}
+
+static void themeTileIcon(lv_obj_t * obj)
+{
+    if (obj == NULL) return;
+
+    lv_obj_set_style_radius(obj, 11, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(0x243743), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(obj, lv_color_hex(0x516B78), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(obj, LV_GRAD_DIR_VER, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(obj, 168, LV_PART_MAIN);
+    lv_obj_set_style_border_color(obj, lv_color_hex(0x8BEAFF), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(obj, 145, LV_PART_MAIN);
+    lv_obj_set_style_border_width(obj, 1, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor(obj, lv_color_hex(0xE8F8FF), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(obj, 125, LV_PART_MAIN);
+}
+
+static void themePlainIcon(lv_obj_t * obj)
+{
+    if (obj == NULL) return;
+
+    lv_obj_set_style_img_recolor(obj, lv_color_hex(0xE8F8FF), LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(obj, 105, LV_PART_MAIN);
+}
+
+static void themePrimaryText(lv_obj_t * obj)
+{
+    if (obj == NULL) return;
+
+    lv_obj_set_style_text_color(obj, lv_color_hex(0xF7FCFF), LV_PART_MAIN);
+}
+
+static void themeSecondaryText(lv_obj_t * obj)
+{
+    if (obj == NULL) return;
+
+    lv_obj_set_style_text_color(obj, lv_color_hex(0xB8D8E7), LV_PART_MAIN);
+}
+
+static void themeObjectList(lv_obj_t * const objects[], void (*themeFn)(lv_obj_t *))
+{
+    for (uint8_t i = 0; objects[i] != NULL; i++) {
+        themeFn(objects[i]);
+    }
+}
+
+static void applyWatchTheme()
+{
+    lv_obj_t * const roundBackgrounds[] = {
+        ui_Container5, ui_Container4, ui_Container6, ui_Container10, ui_Container9, ui_Container12,
+        ui_Container16, ui_Container17, ui_Container20, ui_Container21, ui_Container13, NULL
+    };
+    themeObjectList(roundBackgrounds, themeRoundBackground);
+
+    lv_obj_t * const glassButtons[] = {
+        ui_Container11, ui_Container15, ui_Container19, ui_settings1, ui_alarm, ui_timer, ui_menu6,
+        ui_wifi5, ui_home5, ui_menu2, ui_menu3, ui_bluetooth, ui_games, ui_menu4, ui_menu5,
+        ui_Container14, ui_WifiOption1, ui_WifiOption2, ui_WifiOption3, ui_WifiOption4,
+        ui_home4, ui_home1, ui_home3, NULL
+    };
+    themeObjectList(glassButtons, themeGlassButton);
+
+    lv_obj_t * const tileIcons[] = {
+        ui_brightness, ui_about, ui_about1, ui_games1, ui_brightness2, ui_About2, NULL
+    };
+    themeObjectList(tileIcons, themeTileIcon);
+
+    lv_obj_t * const plainIcons[] = {
+        ui_Image1, ui_Image24, ui_Image3, ui_Image9, ui_Image17, ui_Image22, ui_Image6,
+        ui_Image4, ui_Image2, ui_Image7, ui_Image8, NULL
+    };
+    themeObjectList(plainIcons, themePlainIcon);
+
+    lv_obj_t * const primaryLabels[] = {
+        ui_Label1, ui_Label2, ui_Label4, ui_Label6, ui_Label8, ui_WifiStatus,
+        ui_WifiOptionLabel1, ui_WifiOptionLabel2, ui_WifiOptionLabel3, ui_WifiOptionLabel4,
+        ui_brightnessvalue, ui_Label13, NULL
+    };
+    themeObjectList(primaryLabels, themePrimaryText);
+
+    lv_obj_t * const secondaryLabels[] = {
+        ui_Label3, ui_Label5, ui_Label7, ui_Label10, ui_Label11, ui_Label12, ui_Label14, NULL
+    };
+    themeObjectList(secondaryLabels, themeSecondaryText);
+
+    if (ui_Arc1 != NULL) {
+        lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(0x23414B), LV_PART_MAIN);
+        lv_obj_set_style_arc_opa(ui_Arc1, 125, LV_PART_MAIN);
+        lv_obj_set_style_arc_width(ui_Arc1, 4, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(ui_Arc1, lv_color_hex(0x4EF5B1), LV_PART_INDICATOR);
+        lv_obj_set_style_arc_width(ui_Arc1, 4, LV_PART_INDICATOR);
+    }
+
+    if (ui_BrightnessSlider != NULL) {
+        lv_obj_set_style_radius(ui_BrightnessSlider, 14, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(ui_BrightnessSlider, lv_color_hex(0x162631), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(ui_BrightnessSlider, 255, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(ui_BrightnessSlider, lv_color_hex(0x74DFFF), LV_PART_INDICATOR);
+        lv_obj_set_style_bg_opa(ui_BrightnessSlider, 255, LV_PART_INDICATOR);
+        lv_obj_set_style_bg_color(ui_BrightnessSlider, lv_color_hex(0xF7FCFF), LV_PART_KNOB);
+        lv_obj_set_style_bg_opa(ui_BrightnessSlider, 55, LV_PART_KNOB);
+    }
+
+    if (ui_Spinner1 != NULL) {
+        lv_obj_set_style_arc_color(ui_Spinner1, lv_color_hex(0x23414B), LV_PART_MAIN);
+        lv_obj_set_style_arc_color(ui_Spinner1, lv_color_hex(0x4EF5B1), LV_PART_INDICATOR);
+    }
+}
 
 static lv_obj_t * wifiOptionObj(uint8_t index)
 {
@@ -407,11 +547,11 @@ static void styleWifiList()
         lv_obj_set_style_radius(option, 8, LV_PART_MAIN);
         lv_obj_set_style_pad_left(option, 10, LV_PART_MAIN);
         lv_obj_set_style_pad_right(option, 8, LV_PART_MAIN);
-        lv_obj_set_style_bg_color(option, lv_color_hex(0x242B31), LV_PART_MAIN);
-        lv_obj_set_style_bg_grad_color(option, lv_color_hex(0x3E4750), LV_PART_MAIN);
+        lv_obj_set_style_bg_color(option, lv_color_hex(0x1A2A35), LV_PART_MAIN);
+        lv_obj_set_style_bg_grad_color(option, lv_color_hex(0x38505E), LV_PART_MAIN);
         lv_obj_set_style_bg_grad_dir(option, LV_GRAD_DIR_HOR, LV_PART_MAIN);
-        lv_obj_set_style_border_color(option, lv_color_hex(0x67D7FF), LV_PART_MAIN);
-        lv_obj_set_style_border_opa(option, 70, LV_PART_MAIN);
+        lv_obj_set_style_border_color(option, lv_color_hex(0x6DE6FF), LV_PART_MAIN);
+        lv_obj_set_style_border_opa(option, 95, LV_PART_MAIN);
         lv_obj_set_style_border_width(option, 1, LV_PART_MAIN);
 
         lv_obj_set_width(label, 164);
@@ -446,11 +586,11 @@ static void createWifiResultRow(uint8_t index)
     lv_obj_set_size(row, 188, 42);
     lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_radius(row, 9, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(row, lv_color_hex(0x202832), LV_PART_MAIN);
-    lv_obj_set_style_bg_grad_color(row, lv_color_hex(0x3C4854), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(row, lv_color_hex(0x172733), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(row, lv_color_hex(0x344C5B), LV_PART_MAIN);
     lv_obj_set_style_bg_grad_dir(row, LV_GRAD_DIR_HOR, LV_PART_MAIN);
-    lv_obj_set_style_border_color(row, lv_color_hex(0x67D7FF), LV_PART_MAIN);
-    lv_obj_set_style_border_opa(row, 70, LV_PART_MAIN);
+    lv_obj_set_style_border_color(row, lv_color_hex(0x6DE6FF), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(row, 95, LV_PART_MAIN);
     lv_obj_set_style_border_width(row, 1, LV_PART_MAIN);
     lv_obj_set_style_pad_left(row, 10, LV_PART_MAIN);
     lv_obj_set_style_pad_right(row, 8, LV_PART_MAIN);
@@ -484,22 +624,22 @@ static void showWifiResultsScreen()
 
     wifiResultsScreen = lv_obj_create(NULL);
     lv_obj_clear_flag(wifiResultsScreen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_bg_color(wifiResultsScreen, lv_color_hex(0x050B12), LV_PART_MAIN);
-    lv_obj_set_style_bg_grad_color(wifiResultsScreen, lv_color_hex(0x26313B), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(wifiResultsScreen, lv_color_hex(0x010409), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(wifiResultsScreen, lv_color_hex(0x14283A), LV_PART_MAIN);
     lv_obj_set_style_bg_grad_dir(wifiResultsScreen, LV_GRAD_DIR_VER, LV_PART_MAIN);
 
     lv_obj_t * title = lv_label_create(wifiResultsScreen);
     lv_obj_set_width(title, 132);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 14);
     lv_label_set_text(title, "WiFi Networks");
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_14, LV_PART_MAIN);
 
     wifiResultsStatus = lv_label_create(wifiResultsScreen);
     lv_obj_set_width(wifiResultsStatus, 140);
     lv_obj_align(wifiResultsStatus, LV_ALIGN_TOP_MID, 0, 35);
-    lv_obj_set_style_text_color(wifiResultsStatus, lv_color_hex(0xB8D7E8), LV_PART_MAIN);
+    lv_obj_set_style_text_color(wifiResultsStatus, lv_color_hex(0xB8D8E7), LV_PART_MAIN);
     lv_obj_set_style_text_align(wifiResultsStatus, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_font(wifiResultsStatus, &lv_font_montserrat_10, LV_PART_MAIN);
 
@@ -507,7 +647,7 @@ static void showWifiResultsScreen()
     lv_obj_set_size(closeBtn, 32, 32);
     lv_obj_align(closeBtn, LV_ALIGN_TOP_LEFT, 20, 13);
     lv_obj_set_style_radius(closeBtn, 16, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(closeBtn, lv_color_hex(0x3A424A), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(closeBtn, lv_color_hex(0x1D2B36), LV_PART_MAIN);
     lv_obj_add_event_cb(closeBtn, closeWifiResultsScreen, LV_EVENT_ALL, NULL);
 
     lv_obj_t * closeLabel = lv_label_create(closeBtn);
@@ -623,7 +763,7 @@ static void showWifiPasswordOverlay()
     lv_obj_set_size(wifiPasswordOverlay, 240, 240);
     lv_obj_set_align(wifiPasswordOverlay, LV_ALIGN_CENTER);
     lv_obj_set_style_radius(wifiPasswordOverlay, 120, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(wifiPasswordOverlay, lv_color_hex(0x071019), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(wifiPasswordOverlay, lv_color_hex(0x030A10), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(wifiPasswordOverlay, 250, LV_PART_MAIN);
     lv_obj_set_style_pad_top(wifiPasswordOverlay, 10, LV_PART_MAIN);
 
@@ -640,7 +780,7 @@ static void showWifiPasswordOverlay()
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 12);
     lv_label_set_text(title, selectedWifiSsid.c_str());
     lv_label_set_long_mode(title, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_12, LV_PART_MAIN);
 
@@ -723,7 +863,7 @@ extern "C" void connect_wifi_network_ui(lv_event_t * e)
 static lv_color_t game2048TileColor(uint16_t value)
 {
     switch (value) {
-        case 0: return lv_color_hex(0x222A30);
+        case 0: return lv_color_hex(0x172533);
         case 2: return lv_color_hex(0xEEE4DA);
         case 4: return lv_color_hex(0xEDE0C8);
         case 8: return lv_color_hex(0xF2B179);
@@ -763,7 +903,7 @@ static void game2048UpdateUi()
 
             uint16_t value = game2048Board[r][c];
             lv_obj_set_style_bg_color(tile, game2048TileColor(value), LV_PART_MAIN);
-            lv_obj_set_style_text_color(tile, value <= 4 ? lv_color_hex(0x3C3530) : lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+            lv_obj_set_style_text_color(tile, value <= 4 ? lv_color_hex(0x3C3530) : lv_color_hex(0xF4FAFF), LV_PART_MAIN);
 
             char valueText[8];
             if (value == 0) {
@@ -923,15 +1063,15 @@ static void show2048Game(lv_event_t * e)
     game2048Screen = lv_obj_create(NULL);
     lv_obj_clear_flag(game2048Screen, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_event_cb(game2048Screen, game2048GestureEvent, LV_EVENT_ALL, NULL);
-    lv_obj_set_style_bg_color(game2048Screen, lv_color_hex(0x101820), LV_PART_MAIN);
-    lv_obj_set_style_bg_grad_color(game2048Screen, lv_color_hex(0x2C3742), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(game2048Screen, lv_color_hex(0x010409), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(game2048Screen, lv_color_hex(0x14283A), LV_PART_MAIN);
     lv_obj_set_style_bg_grad_dir(game2048Screen, LV_GRAD_DIR_VER, LV_PART_MAIN);
 
     lv_obj_t * closeBtn = lv_btn_create(game2048Screen);
     lv_obj_set_size(closeBtn, 28, 28);
     lv_obj_align(closeBtn, LV_ALIGN_TOP_LEFT, 52, 22);
     lv_obj_set_style_radius(closeBtn, 14, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(closeBtn, lv_color_hex(0x3C4650), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(closeBtn, lv_color_hex(0x1D2B36), LV_PART_MAIN);
     lv_obj_add_event_cb(closeBtn, game2048CloseEvent, LV_EVENT_ALL, NULL);
     lv_obj_t * closeLabel = lv_label_create(closeBtn);
     lv_label_set_text(closeLabel, LV_SYMBOL_CLOSE);
@@ -941,7 +1081,7 @@ static void show2048Game(lv_event_t * e)
     lv_obj_set_size(resetBtn, 28, 28);
     lv_obj_align(resetBtn, LV_ALIGN_TOP_RIGHT, -52, 22);
     lv_obj_set_style_radius(resetBtn, 14, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(resetBtn, lv_color_hex(0x3C4650), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(resetBtn, lv_color_hex(0x1D2B36), LV_PART_MAIN);
     lv_obj_add_event_cb(resetBtn, game2048ResetEvent, LV_EVENT_ALL, NULL);
     lv_obj_t * resetLabel = lv_label_create(resetBtn);
     lv_label_set_text(resetLabel, LV_SYMBOL_REFRESH);
@@ -951,21 +1091,21 @@ static void show2048Game(lv_event_t * e)
     lv_obj_set_width(title, 120);
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
     lv_label_set_text(title, "2048");
-    lv_obj_set_style_text_color(title, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_color(title, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
     lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
 
     game2048ScoreLabel = lv_label_create(game2048Screen);
     lv_obj_set_width(game2048ScoreLabel, 100);
     lv_obj_align(game2048ScoreLabel, LV_ALIGN_TOP_MID, 0, 36);
-    lv_obj_set_style_text_color(game2048ScoreLabel, lv_color_hex(0xC9D6DF), LV_PART_MAIN);
+    lv_obj_set_style_text_color(game2048ScoreLabel, lv_color_hex(0xB8D8E7), LV_PART_MAIN);
     lv_obj_set_style_text_align(game2048ScoreLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_font(game2048ScoreLabel, &lv_font_montserrat_10, LV_PART_MAIN);
 
     game2048StatusLabel = lv_label_create(game2048Screen);
     lv_obj_set_width(game2048StatusLabel, 100);
     lv_obj_align(game2048StatusLabel, LV_ALIGN_BOTTOM_MID, 0, -7);
-    lv_obj_set_style_text_color(game2048StatusLabel, lv_color_hex(0xC9D6DF), LV_PART_MAIN);
+    lv_obj_set_style_text_color(game2048StatusLabel, lv_color_hex(0xB8D8E7), LV_PART_MAIN);
     lv_obj_set_style_text_align(game2048StatusLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_font(game2048StatusLabel, &lv_font_montserrat_10, LV_PART_MAIN);
 
@@ -975,7 +1115,7 @@ static void show2048Game(lv_event_t * e)
     lv_obj_align(game2048BoardObj, LV_ALIGN_CENTER, 0, 24);
     lv_obj_clear_flag(game2048BoardObj, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_event_cb(game2048BoardObj, game2048GestureEvent, LV_EVENT_ALL, NULL);
-    lv_obj_set_style_bg_color(game2048BoardObj, lv_color_hex(0x141A20), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(game2048BoardObj, lv_color_hex(0x07111A), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(game2048BoardObj, 255, LV_PART_MAIN);
     lv_obj_set_style_radius(game2048BoardObj, 10, LV_PART_MAIN);
 
@@ -1013,10 +1153,10 @@ static void setupPerformanceOverlay()
     lv_obj_align(uiPerfLabel, LV_ALIGN_TOP_MID, 0, 6);
     lv_obj_clear_flag(uiPerfLabel, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_style_radius(uiPerfLabel, 9, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(uiPerfLabel, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(uiPerfLabel, lv_color_hex(0x05080D), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(uiPerfLabel, 135, LV_PART_MAIN);
     lv_obj_set_style_pad_top(uiPerfLabel, 2, LV_PART_MAIN);
-    lv_obj_set_style_text_color(uiPerfLabel, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_color(uiPerfLabel, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
     lv_obj_set_style_text_align(uiPerfLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_font(uiPerfLabel, &lv_font_montserrat_10, LV_PART_MAIN);
 }
@@ -1190,6 +1330,7 @@ void setup()
     // lv_demo_printer();
     // lv_demo_stress();
     ui_init();
+    applyWatchTheme();
     styleWifiList();
     setupGameScreenInteractions();
     setupPerformanceOverlay();
@@ -1230,15 +1371,23 @@ void setup()
     Serial.println( "Setup done" );
     
 }
-unsigned long last_fetch = 0;
+unsigned long lastTimeUpdate = 0;
+unsigned long lastBatteryUpdate = 0;
 void loop()
 {
-    lv_timer_handler(); /* let the GUI do its work */
+    uint32_t nextTimerMs = lv_timer_handler(); /* let the GUI do its work */
     updatePerformanceOverlay();
-    delay(UI_LOOP_DELAY_MS);
-    if (millis() - last_fetch >= 1000) {
+
+    unsigned long now = millis();
+    if (now - lastTimeUpdate >= TIME_UPDATE_MS) {
         updateWatchTime();
-        updateBatteryUi();
-        last_fetch = millis();
+        lastTimeUpdate = now;
     }
+    if (now - lastBatteryUpdate >= BATTERY_UPDATE_MS) {
+        updateBatteryUi();
+        lastBatteryUpdate = now;
+    }
+
+    if (nextTimerMs > UI_LOOP_DELAY_MS) nextTimerMs = UI_LOOP_DELAY_MS;
+    delay(nextTimerMs == 0 ? 1 : nextTimerMs);
 }
