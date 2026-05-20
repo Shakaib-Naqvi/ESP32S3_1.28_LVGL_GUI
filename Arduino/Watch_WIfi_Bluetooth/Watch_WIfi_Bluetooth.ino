@@ -9,6 +9,9 @@
 #include <WiFi.h>
 #include "time.h"
 #include <string.h>
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
 
 #include "CST816S.h"
 #include "ui.h"
@@ -20,27 +23,117 @@
  as the examples and demos are now part of the main LVGL library. */
 
 #define EXAMPLE_LVGL_TICK_PERIOD_MS    2
-#define UI_LOOP_DELAY_MS                2
+#define UI_LOOP_DELAY_MS                1
 #define UI_PERF_UPDATE_MS               1000
+#define LVGL_DRAW_BUFFER_LINES          60
 #define BAT_ADC_PIN                     1
+#define BAT_ADC_UNIT                    ADC_UNIT_1
+#define BAT_ADC_CHANNEL                 ADC_CHANNEL_0
+#define BAT_ADC_ATTEN                   ADC_ATTEN_DB_12
 #define BAT_ADC_DIVIDER_RATIO           3.0f
+#define BAT_ADC_FALLBACK_REF_MV         3300.0f
+#define BAT_ADC_RAW_STEPS               4096.0f
+#define BATTERY_PRESENT_MIN_VOLTAGE     2.50f
 #define BATTERY_MIN_VOLTAGE             3.20f
 #define BATTERY_MAX_VOLTAGE             4.20f
+#define BACKLIGHT_PWM_FREQ              5000
+#define BACKLIGHT_PWM_RESOLUTION        8
+#define BACKLIGHT_MIN_PERCENT           5
+#define BACKLIGHT_DEFAULT_PERCENT       50
+
+#ifndef TFT_BACKLIGHT_ON
+#define TFT_BACKLIGHT_ON                HIGH
+#endif
 
 /*Change to your screen resolution*/
 static const uint16_t screenWidth  = 240;
 static const uint16_t screenHeight = 240;
 
 static lv_disp_draw_buf_t draw_buf;
-static lv_color_t buf[ screenWidth * screenHeight / 10 ];
 
-static lv_color_t buf1[screenWidth * 60];
-static lv_color_t buf2[screenWidth * 60];
+static lv_color_t buf1[screenWidth * LVGL_DRAW_BUFFER_LINES];
+static lv_color_t buf2[screenWidth * LVGL_DRAW_BUFFER_LINES];
 
 TFT_eSPI tft = TFT_eSPI(screenWidth, screenHeight); /* TFT instance */
 CST816S touch(6, 7, 13, 5);	// sda, scl, rst, irq
 static float batteryVoltage = 0.0f;
 static uint8_t batteryPercent = 0;
+static bool batteryPresent = false;
+static adc_oneshot_unit_handle_t batteryAdcHandle = NULL;
+static adc_cali_handle_t batteryAdcCaliHandle = NULL;
+static bool batteryAdcReady = false;
+static bool batteryAdcCalibrated = false;
+static bool backlightPwmReady = false;
+static uint8_t screenBrightnessPercent = BACKLIGHT_DEFAULT_PERCENT;
+
+static uint8_t clampBrightnessPercent(int32_t percent)
+{
+    if (percent < BACKLIGHT_MIN_PERCENT) return BACKLIGHT_MIN_PERCENT;
+    if (percent > 100) return 100;
+    return (uint8_t)percent;
+}
+
+static uint32_t brightnessPercentToDuty(uint8_t percent)
+{
+    const uint32_t maxDuty = (1UL << BACKLIGHT_PWM_RESOLUTION) - 1;
+    uint32_t duty = (maxDuty * percent) / 100;
+
+#if TFT_BACKLIGHT_ON == LOW
+    duty = maxDuty - duty;
+#endif
+
+    return duty;
+}
+
+static void updateBrightnessLabel()
+{
+    if (ui_brightnessvalue == NULL) return;
+
+    char text[8];
+    snprintf(text, sizeof(text), "%u%%", screenBrightnessPercent);
+    lv_label_set_text(ui_brightnessvalue, text);
+}
+
+static void setScreenBrightness(uint8_t percent, bool updateSlider)
+{
+    screenBrightnessPercent = clampBrightnessPercent(percent);
+
+    if (backlightPwmReady) {
+        ledcWrite(TFT_BL, brightnessPercentToDuty(screenBrightnessPercent));
+    }
+
+    if (updateSlider && ui_BrightnessSlider != NULL) {
+        lv_slider_set_value(ui_BrightnessSlider, screenBrightnessPercent, LV_ANIM_OFF);
+    }
+    updateBrightnessLabel();
+}
+
+static void brightnessSliderEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_VALUE_CHANGED) return;
+
+    lv_obj_t * slider = lv_event_get_target(e);
+    setScreenBrightness((uint8_t)lv_slider_get_value(slider), false);
+}
+
+static void setupBacklightPwm()
+{
+    pinMode(TFT_BL, OUTPUT);
+    backlightPwmReady = ledcAttach(TFT_BL, BACKLIGHT_PWM_FREQ, BACKLIGHT_PWM_RESOLUTION);
+    if (!backlightPwmReady) {
+        Serial.println("Backlight PWM attach failed.");
+    }
+    setScreenBrightness(screenBrightnessPercent, false);
+}
+
+static void setupBrightnessControls()
+{
+    if (ui_BrightnessSlider == NULL) return;
+
+    lv_slider_set_range(ui_BrightnessSlider, BACKLIGHT_MIN_PERCENT, 100);
+    lv_obj_add_event_cb(ui_BrightnessSlider, brightnessSliderEvent, LV_EVENT_VALUE_CHANGED, NULL);
+    setScreenBrightness(screenBrightnessPercent, true);
+}
 
 void updateWatchTime()
 {
@@ -80,24 +173,92 @@ static uint8_t voltageToBatteryPercent(float voltage)
                      (BATTERY_MAX_VOLTAGE - BATTERY_MIN_VOLTAGE));
 }
 
+static void setupBatteryAdc()
+{
+    adc_oneshot_unit_init_cfg_t unitConfig = {
+        .unit_id = BAT_ADC_UNIT,
+        .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
+        .ulp_mode = ADC_ULP_MODE_DISABLE
+    };
+
+    esp_err_t result = adc_oneshot_new_unit(&unitConfig, &batteryAdcHandle);
+    if (result != ESP_OK) {
+        Serial.print("BAT ADC unit init failed: ");
+        Serial.println(esp_err_to_name(result));
+        batteryAdcReady = false;
+        return;
+    }
+
+    adc_oneshot_chan_cfg_t channelConfig = {
+        .atten = BAT_ADC_ATTEN,
+        .bitwidth = ADC_BITWIDTH_12
+    };
+
+    result = adc_oneshot_config_channel(batteryAdcHandle, BAT_ADC_CHANNEL, &channelConfig);
+    if (result != ESP_OK) {
+        Serial.print("BAT ADC channel config failed: ");
+        Serial.println(esp_err_to_name(result));
+        batteryAdcReady = false;
+        return;
+    }
+
+#if ADC_CALI_SCHEME_CURVE_FITTING_SUPPORTED
+    adc_cali_curve_fitting_config_t caliConfig = {
+        .unit_id = BAT_ADC_UNIT,
+        .chan = BAT_ADC_CHANNEL,
+        .atten = BAT_ADC_ATTEN,
+        .bitwidth = ADC_BITWIDTH_12
+    };
+    result = adc_cali_create_scheme_curve_fitting(&caliConfig, &batteryAdcCaliHandle);
+    batteryAdcCalibrated = result == ESP_OK;
+#else
+    batteryAdcCalibrated = false;
+#endif
+
+    batteryAdcReady = true;
+}
+
 static float readBatteryVoltage()
 {
+    if (!batteryAdcReady || batteryAdcHandle == NULL) {
+        return 0.0f;
+    }
+
     const uint8_t samples = 12;
     uint32_t millivolts = 0;
+    uint8_t validSamples = 0;
 
     for (uint8_t i = 0; i < samples; i++) {
-        millivolts += analogReadMilliVolts(BAT_ADC_PIN);
+        int adcMillivolts = 0;
+        esp_err_t result = ESP_FAIL;
+
+        if (batteryAdcCalibrated && batteryAdcCaliHandle != NULL) {
+            result = adc_oneshot_get_calibrated_result(batteryAdcHandle, batteryAdcCaliHandle, BAT_ADC_CHANNEL,
+                                                       &adcMillivolts);
+        } else {
+            int rawValue = 0;
+            result = adc_oneshot_read(batteryAdcHandle, BAT_ADC_CHANNEL, &rawValue);
+            adcMillivolts = (int)((rawValue * BAT_ADC_FALLBACK_REF_MV) / BAT_ADC_RAW_STEPS);
+        }
+
+        if (result == ESP_OK) {
+            millivolts += adcMillivolts;
+            validSamples++;
+        }
         delay(1);
     }
 
-    float adcVoltage = (millivolts / (float)samples) / 1000.0f;
+    if (validSamples == 0) return 0.0f;
+
+    float adcVoltage = (millivolts / (float)validSamples) / 1000.0f;
     return adcVoltage * BAT_ADC_DIVIDER_RATIO;
 }
 
 static void updateBatteryReading()
 {
     batteryVoltage = readBatteryVoltage();
-    batteryPercent = voltageToBatteryPercent(batteryVoltage);
+    batteryPresent = batteryVoltage >= BATTERY_PRESENT_MIN_VOLTAGE;
+    batteryPercent = batteryPresent ? voltageToBatteryPercent(batteryVoltage) : 0;
 }
 
 static void updateBatteryUi()
@@ -117,7 +278,11 @@ static void updateBatteryUi()
 
     if (ui_Label8 != NULL) {
         char batteryText[18];
-        lv_snprintf(batteryText, sizeof(batteryText), "%u%% %.2fV", batteryPercent, batteryVoltage);
+        if (batteryPresent) {
+            lv_snprintf(batteryText, sizeof(batteryText), "%u%% %.2fV", batteryPercent, batteryVoltage);
+        } else {
+            lv_snprintf(batteryText, sizeof(batteryText), "No Bat");
+        }
         lv_label_set_text(ui_Label8, batteryText);
     }
 }
@@ -398,13 +563,13 @@ static void connectToSelectedWifi(const char * typedPassword)
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect(true);
-    delay(100);
+    delay(30);
     WiFi.begin(selectedWifiSsid.c_str(), wifiPassword.c_str());
 
     unsigned long startTime = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - startTime < 15000) {
         lv_timer_handler();
-        delay(100);
+        delay(30);
         Serial.print(".");
     }
 
@@ -967,10 +1132,10 @@ void setup()
     // uint16_t calData[5] = { 275, 3620, 264, 3532, 1 };
     // tft.setTouch( calData );
     touch.begin();
-    analogReadResolution(12);
-    analogSetPinAttenuation(BAT_ADC_PIN, ADC_11db);
+    setupBacklightPwm();
+    setupBatteryAdc();
 
-    lv_disp_draw_buf_init( &draw_buf, buf1, buf2, screenWidth * screenHeight / 10 );
+    lv_disp_draw_buf_init( &draw_buf, buf1, buf2, screenWidth * LVGL_DRAW_BUFFER_LINES );
 
     /*Initialize the display*/
     static lv_disp_drv_t disp_drv;
@@ -1028,6 +1193,7 @@ void setup()
     styleWifiList();
     setupGameScreenInteractions();
     setupPerformanceOverlay();
+    setupBrightnessControls();
     uiLastPerfMillis = millis();
     randomSeed((uint32_t)micros());
     updateBatteryUi();
@@ -1039,7 +1205,7 @@ void setup()
     unsigned long setupWifiStart = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - setupWifiStart < 8000) {
         lv_timer_handler();
-        delay(500);
+        delay(100);
         Serial.print(".");
     }
     Serial.println("");
@@ -1049,8 +1215,13 @@ void setup()
 
         // Init and get the time
         configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-        updateWatchTime();
-        printLocalTime();
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo, 5000)) {
+            updateWatchTime();
+            printLocalTime();
+        } else {
+            Serial.println("NTP sync pending.");
+        }
     } else {
         Serial.println("Auto WiFi connect skipped.");
         setWifiStatus("Tap Scan");
