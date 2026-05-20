@@ -20,6 +20,8 @@
  as the examples and demos are now part of the main LVGL library. */
 
 #define EXAMPLE_LVGL_TICK_PERIOD_MS    2
+#define UI_LOOP_DELAY_MS                2
+#define UI_PERF_UPDATE_MS               1000
 
 /*Change to your screen resolution*/
 static const uint16_t screenWidth  = 240;
@@ -85,6 +87,11 @@ static lv_obj_t * game2048StatusLabel = NULL;
 static lv_obj_t * game2048Tiles[4][4];
 static uint16_t game2048Board[4][4];
 static uint32_t game2048Score = 0;
+
+static lv_obj_t * uiPerfLabel = NULL;
+static uint32_t uiFlushCount = 0;
+static uint32_t uiLastPerfMillis = 0;
+static uint32_t uiLastFlushCount = 0;
 
 static lv_obj_t * wifiOptionObj(uint8_t index)
 {
@@ -776,6 +783,41 @@ static void setupGameScreenInteractions()
     lv_obj_add_event_cb(ui_games1, show2048Game, LV_EVENT_ALL, NULL);
 }
 
+static void setupPerformanceOverlay()
+{
+    uiPerfLabel = lv_label_create(lv_layer_top());
+    lv_label_set_text(uiPerfLabel, "FPS --");
+    lv_obj_set_size(uiPerfLabel, 54, 18);
+    lv_obj_align(uiPerfLabel, LV_ALIGN_TOP_MID, 0, 6);
+    lv_obj_clear_flag(uiPerfLabel, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_radius(uiPerfLabel, 9, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(uiPerfLabel, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(uiPerfLabel, 135, LV_PART_MAIN);
+    lv_obj_set_style_pad_top(uiPerfLabel, 2, LV_PART_MAIN);
+    lv_obj_set_style_text_color(uiPerfLabel, lv_color_hex(0xFFFFFF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(uiPerfLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(uiPerfLabel, &lv_font_montserrat_10, LV_PART_MAIN);
+}
+
+static void updatePerformanceOverlay()
+{
+    if (uiPerfLabel == NULL) return;
+
+    uint32_t now = millis();
+    if (now - uiLastPerfMillis < UI_PERF_UPDATE_MS) return;
+
+    uint32_t currentFlushCount = uiFlushCount;
+    uint32_t elapsed = now - uiLastPerfMillis;
+    uint32_t fps = ((currentFlushCount - uiLastFlushCount) * 1000UL) / elapsed;
+
+    char perfText[12];
+    lv_snprintf(perfText, sizeof(perfText), "FPS %lu", (unsigned long)fps);
+    lv_label_set_text(uiPerfLabel, perfText);
+
+    uiLastFlushCount = currentFlushCount;
+    uiLastPerfMillis = now;
+}
+
 #if LV_USE_LOG != 0
 /* Serial debugging */
 void my_print(const char * buf)
@@ -788,6 +830,8 @@ void my_print(const char * buf)
 /* Display flushing */
 void my_disp_flush( lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_color_t *color_p )
 {
+    uiFlushCount++;
+
     uint32_t w = ( area->x2 - area->x1 + 1 );
     uint32_t h = ( area->y2 - area->y1 + 1 );
 
@@ -924,6 +968,8 @@ void setup()
     ui_init();
     styleWifiList();
     setupGameScreenInteractions();
+    setupPerformanceOverlay();
+    uiLastPerfMillis = millis();
     randomSeed((uint32_t)micros());
 
     Serial.print("Connecting to ");
@@ -957,7 +1003,8 @@ unsigned long last_fetch = 0;
 void loop()
 {
     lv_timer_handler(); /* let the GUI do its work */
-    delay( 5 );
+    updatePerformanceOverlay();
+    delay(UI_LOOP_DELAY_MS);
     if (millis() - last_fetch >= 1000) {
         updateWatchTime();
         last_fetch = millis();
