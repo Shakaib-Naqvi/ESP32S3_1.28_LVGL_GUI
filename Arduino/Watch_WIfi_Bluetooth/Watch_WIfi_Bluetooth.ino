@@ -482,6 +482,14 @@ static void applyWatchTheme()
     }
 }
 
+static void loadGeneratedScreen(lv_obj_t ** screen, lv_scr_load_anim_t anim, uint32_t time, void (*screenInit)(void))
+{
+    if (*screen == NULL) {
+        screenInit();
+    }
+    lv_scr_load_anim(*screen, anim, time, 0, true);
+}
+
 static void countdownUpdateUi()
 {
     if (countdownTimeLabel != NULL) {
@@ -535,15 +543,13 @@ static void countdownCloseEvent(lv_event_t * e)
         countdownLvTimer = NULL;
     }
 
-    lv_obj_t * oldScreen = countdownScreen;
     countdownScreen = NULL;
     countdownTimeLabel = NULL;
     countdownStatusLabel = NULL;
     countdownStartLabel = NULL;
     countdownRunning = false;
 
-    lv_scr_load_anim(ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
-    if (oldScreen != NULL) lv_obj_del_async(oldScreen);
+    loadGeneratedScreen(&ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, &ui_Screen3_screen_init);
 }
 
 static void countdownAdjustMinutes(int8_t minutes)
@@ -719,15 +725,13 @@ static void stopwatchCloseEvent(lv_event_t * e)
         stopwatchLvTimer = NULL;
     }
 
-    lv_obj_t * oldScreen = stopwatchScreen;
     stopwatchScreen = NULL;
     stopwatchTimeLabel = NULL;
     stopwatchStatusLabel = NULL;
     stopwatchStartLabel = NULL;
     stopwatchRunning = false;
 
-    lv_scr_load_anim(ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
-    if (oldScreen != NULL) lv_obj_del_async(oldScreen);
+    loadGeneratedScreen(&ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, &ui_Screen3_screen_init);
 }
 
 static void stopwatchStartPauseEvent(lv_event_t * e)
@@ -839,18 +843,18 @@ static void setLauncherIconShape(lv_obj_t * icon, bool ballView)
     if (icon == NULL) return;
 
     if (ballView) {
-        lv_obj_set_size(icon, 46, 46);
-        lv_obj_set_style_radius(icon, 23, LV_PART_MAIN);
+        lv_obj_set_size(icon, 34, 34);
+        lv_obj_set_style_radius(icon, 17, LV_PART_MAIN);
         lv_obj_set_style_bg_color(icon, lv_color_hex(0x18313C), LV_PART_MAIN);
         lv_obj_set_style_bg_grad_color(icon, lv_color_hex(0x3C7782), LV_PART_MAIN);
         lv_obj_set_style_bg_grad_dir(icon, LV_GRAD_DIR_VER, LV_PART_MAIN);
-        lv_obj_set_style_bg_opa(icon, 245, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(icon, 220, LV_PART_MAIN);
         lv_obj_set_style_border_color(icon, lv_color_hex(0x89F0FF), LV_PART_MAIN);
         lv_obj_set_style_border_opa(icon, 180, LV_PART_MAIN);
         lv_obj_set_style_border_width(icon, 1, LV_PART_MAIN);
         lv_obj_set_style_img_recolor(icon, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
-        lv_obj_set_style_img_recolor_opa(icon, 150, LV_PART_MAIN);
-        lv_img_set_zoom(icon, 390);
+        lv_obj_set_style_img_recolor_opa(icon, 155, LV_PART_MAIN);
+        lv_img_set_zoom(icon, 280);
     } else {
         lv_obj_set_size(icon, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
         themeGlassButton(icon);
@@ -875,37 +879,33 @@ static void applyLauncherLayout()
 {
     if (ui_Container18 == NULL) return;
 
-    lv_obj_set_size(ui_Container18, launcherBallView ? 218 : 200, launcherBallView ? 218 : 200);
+    lv_obj_t * const placeholderIcons[] = { ui_menu2, ui_menu3, ui_menu4, ui_menu5, NULL };
+    for (uint8_t i = 0; placeholderIcons[i] != NULL; i++) {
+        lv_obj_add_flag(placeholderIcons[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    lv_obj_set_size(ui_Container18, 200, 200);
 
     if (launcherBallView) {
-        placeLauncherIcon(ui_settings1, 0, -82, true);
-        placeLauncherIcon(ui_wifi5, 58, -58, true);
-        placeLauncherIcon(ui_bluetooth, 82, 0, true);
-        placeLauncherIcon(ui_games, 58, 58, true);
+        placeLauncherIcon(ui_settings1, 0, -66, true);
+        placeLauncherIcon(ui_wifi5, 47, -47, true);
+        placeLauncherIcon(ui_bluetooth, 66, 0, true);
+        placeLauncherIcon(ui_games, 47, 47, true);
         placeLauncherIcon(ui_home5, 0, 0, true);
-        placeLauncherIcon(ui_timer, -58, 58, true);
-        placeLauncherIcon(ui_alarm, -82, 0, true);
-        placeLauncherIcon(ui_menu6, -58, -58, true);
-
-        lv_obj_t * const hiddenIcons[] = { ui_menu2, ui_menu3, ui_menu4, ui_menu5, NULL };
-        for (uint8_t i = 0; hiddenIcons[i] != NULL; i++) {
-            lv_obj_add_flag(hiddenIcons[i], LV_OBJ_FLAG_HIDDEN);
-        }
+        placeLauncherIcon(ui_timer, -47, 47, true);
+        placeLauncherIcon(ui_alarm, -66, 0, true);
+        placeLauncherIcon(ui_menu6, -47, -47, true);
         return;
     }
 
     placeLauncherIcon(ui_settings1, -60, -60, false);
     placeLauncherIcon(ui_alarm, -60, 0, false);
     placeLauncherIcon(ui_timer, -60, 60, false);
-    placeLauncherIcon(ui_menu6, -60, 120, false);
     placeLauncherIcon(ui_wifi5, 0, -60, false);
     placeLauncherIcon(ui_home5, 0, 0, false);
-    placeLauncherIcon(ui_menu2, 0, 60, false);
-    placeLauncherIcon(ui_menu3, 0, 120, false);
+    placeLauncherIcon(ui_menu6, 0, 60, false);
     placeLauncherIcon(ui_bluetooth, 60, -60, false);
     placeLauncherIcon(ui_games, 60, 0, false);
-    placeLauncherIcon(ui_menu4, 60, 60, false);
-    placeLauncherIcon(ui_menu5, 60, 120, false);
 }
 
 static void setLauncherLayoutPreference(bool ballView)
@@ -930,14 +930,12 @@ static void launcherPrefsCloseEvent(lv_event_t * e)
 {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 
-    lv_obj_t * oldScreen = launcherPrefsScreen;
     launcherPrefsScreen = NULL;
     launcherModeLabel = NULL;
     launcherGridButton = NULL;
     launcherBallButton = NULL;
 
-    lv_scr_load_anim(ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
-    if (oldScreen != NULL) lv_obj_del_async(oldScreen);
+    loadGeneratedScreen(&ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, &ui_Screen3_screen_init);
 }
 
 static lv_obj_t * createLauncherPrefButton(lv_obj_t * parent, const char * text, int16_t x, lv_event_cb_t eventCb)
@@ -1142,16 +1140,12 @@ static void closeWifiResultsScreen(lv_event_t * e)
 {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 
-    lv_obj_t * oldScreen = wifiResultsScreen;
     wifiResultsScreen = NULL;
     wifiResultsStatus = NULL;
     wifiResultsList = NULL;
     closeWifiPasswordOverlay();
 
-    lv_scr_load_anim(ui_Screen4, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
-    if (oldScreen != NULL) {
-        lv_obj_del_async(oldScreen);
-    }
+    loadGeneratedScreen(&ui_Screen4, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, &ui_Screen4_screen_init);
     setWifiStatus("Select network");
 }
 
@@ -1599,15 +1593,13 @@ static void game2048CloseEvent(lv_event_t * e)
 {
     if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
 
-    lv_obj_t * oldScreen = game2048Screen;
     game2048Screen = NULL;
     game2048BoardObj = NULL;
     game2048ScoreLabel = NULL;
     game2048StatusLabel = NULL;
     memset(game2048Tiles, 0, sizeof(game2048Tiles));
 
-    lv_scr_load_anim(ui_Screen5, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
-    if (oldScreen != NULL) lv_obj_del_async(oldScreen);
+    loadGeneratedScreen(&ui_Screen5, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, &ui_Screen5_screen_init);
 }
 
 static void game2048ResetEvent(lv_event_t * e)
