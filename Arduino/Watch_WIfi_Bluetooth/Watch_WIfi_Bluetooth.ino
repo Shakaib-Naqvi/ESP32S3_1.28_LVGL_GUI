@@ -8,6 +8,7 @@
 #include <demos/lv_demos.h>
 #include <WiFi.h>
 #include "time.h"
+#include <Preferences.h>
 #include <string.h>
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
@@ -59,6 +60,7 @@ static lv_color_t buf2[screenWidth * LVGL_DRAW_BUFFER_LINES];
 
 TFT_eSPI tft = TFT_eSPI(screenWidth, screenHeight); /* TFT instance */
 CST816S touch(6, 7, 13, 5);	// sda, scl, rst, irq
+static Preferences launcherPrefs;
 static float batteryVoltage = 0.0f;
 static uint8_t batteryPercent = 0;
 static bool batteryPresent = false;
@@ -329,6 +331,12 @@ static lv_timer_t * stopwatchLvTimer = NULL;
 static uint32_t stopwatchElapsedMs = 0;
 static uint32_t stopwatchLastTickMs = 0;
 static bool stopwatchRunning = false;
+
+static lv_obj_t * launcherPrefsScreen = NULL;
+static lv_obj_t * launcherModeLabel = NULL;
+static lv_obj_t * launcherGridButton = NULL;
+static lv_obj_t * launcherBallButton = NULL;
+static bool launcherBallView = false;
 
 static lv_obj_t * uiPerfLabel = NULL;
 static uint32_t uiFlushCount = 0;
@@ -804,6 +812,224 @@ static void setupStopwatchScreenInteractions()
 
     lv_obj_add_flag(ui_alarm, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(ui_alarm, showStopwatch, LV_EVENT_ALL, NULL);
+}
+
+static void styleLauncherPreferenceButton(lv_obj_t * button, bool selected)
+{
+    if (button == NULL) return;
+
+    themeGlassButton(button);
+    lv_obj_set_style_bg_color(button, selected ? lv_color_hex(0x1F6372) : lv_color_hex(0x1D2B36), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(button, selected ? lv_color_hex(0x52D5E9) : lv_color_hex(0x405867), LV_PART_MAIN);
+    lv_obj_set_style_border_opa(button, selected ? 220 : 120, LV_PART_MAIN);
+}
+
+static void updateLauncherPreferenceUi()
+{
+    styleLauncherPreferenceButton(launcherGridButton, !launcherBallView);
+    styleLauncherPreferenceButton(launcherBallButton, launcherBallView);
+
+    if (launcherModeLabel != NULL) {
+        lv_label_set_text(launcherModeLabel, launcherBallView ? "Ball view" : "Grid view");
+    }
+}
+
+static void setLauncherIconShape(lv_obj_t * icon, bool ballView)
+{
+    if (icon == NULL) return;
+
+    if (ballView) {
+        lv_obj_set_size(icon, 46, 46);
+        lv_obj_set_style_radius(icon, 23, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(icon, lv_color_hex(0x18313C), LV_PART_MAIN);
+        lv_obj_set_style_bg_grad_color(icon, lv_color_hex(0x3C7782), LV_PART_MAIN);
+        lv_obj_set_style_bg_grad_dir(icon, LV_GRAD_DIR_VER, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(icon, 245, LV_PART_MAIN);
+        lv_obj_set_style_border_color(icon, lv_color_hex(0x89F0FF), LV_PART_MAIN);
+        lv_obj_set_style_border_opa(icon, 180, LV_PART_MAIN);
+        lv_obj_set_style_border_width(icon, 1, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor(icon, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
+        lv_obj_set_style_img_recolor_opa(icon, 150, LV_PART_MAIN);
+        lv_img_set_zoom(icon, 390);
+    } else {
+        lv_obj_set_size(icon, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+        themeGlassButton(icon);
+        lv_obj_set_style_img_recolor(icon, lv_color_hex(0xE8F8FF), LV_PART_MAIN);
+        lv_obj_set_style_img_recolor_opa(icon, 125, LV_PART_MAIN);
+        lv_img_set_zoom(icon, 450);
+    }
+}
+
+static void placeLauncherIcon(lv_obj_t * icon, int16_t x, int16_t y, bool ballView)
+{
+    if (icon == NULL) return;
+
+    lv_obj_clear_flag(icon, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_align(icon, LV_ALIGN_CENTER);
+    lv_obj_set_x(icon, x);
+    lv_obj_set_y(icon, y);
+    setLauncherIconShape(icon, ballView);
+}
+
+static void applyLauncherLayout()
+{
+    if (ui_Container18 == NULL) return;
+
+    lv_obj_set_size(ui_Container18, launcherBallView ? 218 : 200, launcherBallView ? 218 : 200);
+
+    if (launcherBallView) {
+        placeLauncherIcon(ui_settings1, 0, -82, true);
+        placeLauncherIcon(ui_wifi5, 58, -58, true);
+        placeLauncherIcon(ui_bluetooth, 82, 0, true);
+        placeLauncherIcon(ui_games, 58, 58, true);
+        placeLauncherIcon(ui_home5, 0, 0, true);
+        placeLauncherIcon(ui_timer, -58, 58, true);
+        placeLauncherIcon(ui_alarm, -82, 0, true);
+        placeLauncherIcon(ui_menu6, -58, -58, true);
+
+        lv_obj_t * const hiddenIcons[] = { ui_menu2, ui_menu3, ui_menu4, ui_menu5, NULL };
+        for (uint8_t i = 0; hiddenIcons[i] != NULL; i++) {
+            lv_obj_add_flag(hiddenIcons[i], LV_OBJ_FLAG_HIDDEN);
+        }
+        return;
+    }
+
+    placeLauncherIcon(ui_settings1, -60, -60, false);
+    placeLauncherIcon(ui_alarm, -60, 0, false);
+    placeLauncherIcon(ui_timer, -60, 60, false);
+    placeLauncherIcon(ui_menu6, -60, 120, false);
+    placeLauncherIcon(ui_wifi5, 0, -60, false);
+    placeLauncherIcon(ui_home5, 0, 0, false);
+    placeLauncherIcon(ui_menu2, 0, 60, false);
+    placeLauncherIcon(ui_menu3, 0, 120, false);
+    placeLauncherIcon(ui_bluetooth, 60, -60, false);
+    placeLauncherIcon(ui_games, 60, 0, false);
+    placeLauncherIcon(ui_menu4, 60, 60, false);
+    placeLauncherIcon(ui_menu5, 60, 120, false);
+}
+
+static void setLauncherLayoutPreference(bool ballView)
+{
+    launcherBallView = ballView;
+    launcherPrefs.putBool("ball_view", launcherBallView);
+    applyLauncherLayout();
+    updateLauncherPreferenceUi();
+}
+
+static void launcherGridEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) setLauncherLayoutPreference(false);
+}
+
+static void launcherBallEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) setLauncherLayoutPreference(true);
+}
+
+static void launcherPrefsCloseEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    lv_obj_t * oldScreen = launcherPrefsScreen;
+    launcherPrefsScreen = NULL;
+    launcherModeLabel = NULL;
+    launcherGridButton = NULL;
+    launcherBallButton = NULL;
+
+    lv_scr_load_anim(ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
+    if (oldScreen != NULL) lv_obj_del_async(oldScreen);
+}
+
+static lv_obj_t * createLauncherPrefButton(lv_obj_t * parent, const char * text, int16_t x, lv_event_cb_t eventCb)
+{
+    lv_obj_t * button = lv_btn_create(parent);
+    lv_obj_set_size(button, 76, 36);
+    lv_obj_align(button, LV_ALIGN_CENTER, x, 48);
+    lv_obj_add_event_cb(button, eventCb, LV_EVENT_ALL, NULL);
+
+    lv_obj_t * label = lv_label_create(button);
+    lv_label_set_text(label, text);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_center(label);
+
+    return button;
+}
+
+static void showLauncherPrefs(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    if (launcherPrefsScreen != NULL) {
+        lv_scr_load_anim(launcherPrefsScreen, LV_SCR_LOAD_ANIM_FADE_ON, 80, 0, false);
+        return;
+    }
+
+    launcherPrefsScreen = lv_obj_create(NULL);
+    lv_obj_clear_flag(launcherPrefsScreen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(launcherPrefsScreen, lv_color_hex(0x010409), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(launcherPrefsScreen, lv_color_hex(0x14283A), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(launcherPrefsScreen, LV_GRAD_DIR_VER, LV_PART_MAIN);
+
+    lv_obj_t * closeBtn = lv_btn_create(launcherPrefsScreen);
+    lv_obj_set_size(closeBtn, 28, 28);
+    lv_obj_align(closeBtn, LV_ALIGN_TOP_LEFT, 52, 22);
+    lv_obj_set_style_radius(closeBtn, 14, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(closeBtn, lv_color_hex(0x1D2B36), LV_PART_MAIN);
+    lv_obj_add_event_cb(closeBtn, launcherPrefsCloseEvent, LV_EVENT_ALL, NULL);
+    lv_obj_t * closeLabel = lv_label_create(closeBtn);
+    lv_label_set_text(closeLabel, LV_SYMBOL_CLOSE);
+    lv_obj_center(closeLabel);
+
+    lv_obj_t * title = lv_label_create(launcherPrefsScreen);
+    lv_obj_set_width(title, 150);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 12);
+    lv_label_set_text(title, "Launcher");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
+
+    launcherModeLabel = lv_label_create(launcherPrefsScreen);
+    lv_obj_set_width(launcherModeLabel, 150);
+    lv_obj_align(launcherModeLabel, LV_ALIGN_TOP_MID, 0, 39);
+    lv_obj_set_style_text_color(launcherModeLabel, lv_color_hex(0xB8D8E7), LV_PART_MAIN);
+    lv_obj_set_style_text_align(launcherModeLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(launcherModeLabel, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    lv_obj_t * preview = lv_obj_create(launcherPrefsScreen);
+    lv_obj_remove_style_all(preview);
+    lv_obj_set_size(preview, 120, 72);
+    lv_obj_align(preview, LV_ALIGN_CENTER, 0, -18);
+    lv_obj_clear_flag(preview, LV_OBJ_FLAG_SCROLLABLE);
+
+    for (uint8_t i = 0; i < 7; i++) {
+        lv_obj_t * dot = lv_obj_create(preview);
+        lv_obj_remove_style_all(dot);
+        int16_t x = launcherBallView ? (60 + (int16_t)(45 * lv_trigo_cos(i * 360 / 7) / 32767)) : (18 + ((i % 3) * 42));
+        int16_t y = launcherBallView ? (36 + (int16_t)(26 * lv_trigo_sin(i * 360 / 7) / 32767)) : (8 + ((i / 3) * 28));
+        lv_obj_set_size(dot, launcherBallView ? 18 : 16, launcherBallView ? 18 : 16);
+        lv_obj_set_pos(dot, x - 8, y - 8);
+        lv_obj_set_style_radius(dot, 9, LV_PART_MAIN);
+        lv_obj_set_style_bg_color(dot, lv_color_hex(0x2D5A65), LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(dot, 255, LV_PART_MAIN);
+        lv_obj_set_style_border_color(dot, lv_color_hex(0x89F0FF), LV_PART_MAIN);
+        lv_obj_set_style_border_opa(dot, 120, LV_PART_MAIN);
+        lv_obj_set_style_border_width(dot, 1, LV_PART_MAIN);
+    }
+
+    launcherGridButton = createLauncherPrefButton(launcherPrefsScreen, "Grid", -42, launcherGridEvent);
+    launcherBallButton = createLauncherPrefButton(launcherPrefsScreen, "Ball", 42, launcherBallEvent);
+    updateLauncherPreferenceUi();
+
+    lv_scr_load_anim(launcherPrefsScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 180, 0, false);
+}
+
+static void setupLauncherPreferenceInteractions()
+{
+    if (ui_menu6 == NULL) return;
+
+    lv_obj_add_flag(ui_menu6, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(ui_menu6, showLauncherPrefs, LV_EVENT_ALL, NULL);
 }
 
 static lv_obj_t * wifiOptionObj(uint8_t index)
@@ -1680,11 +1906,16 @@ void setup()
     // lv_demo_music();              
     // lv_demo_printer();
     // lv_demo_stress();
+    launcherPrefs.begin("launcher", false);
+    launcherBallView = launcherPrefs.getBool("ball_view", false);
+
     ui_init();
     applyWatchTheme();
     styleWifiList();
     setupTimerScreenInteractions();
     setupStopwatchScreenInteractions();
+    setupLauncherPreferenceInteractions();
+    applyLauncherLayout();
     setupGameScreenInteractions();
     setupPerformanceOverlay();
     setupBrightnessControls();
