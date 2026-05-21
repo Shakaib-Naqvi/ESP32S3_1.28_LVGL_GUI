@@ -321,6 +321,15 @@ static uint32_t countdownRemainingSec = 300;
 static uint32_t countdownLastTickMs = 0;
 static bool countdownRunning = false;
 
+static lv_obj_t * stopwatchScreen = NULL;
+static lv_obj_t * stopwatchTimeLabel = NULL;
+static lv_obj_t * stopwatchStatusLabel = NULL;
+static lv_obj_t * stopwatchStartLabel = NULL;
+static lv_timer_t * stopwatchLvTimer = NULL;
+static uint32_t stopwatchElapsedMs = 0;
+static uint32_t stopwatchLastTickMs = 0;
+static bool stopwatchRunning = false;
+
 static lv_obj_t * uiPerfLabel = NULL;
 static uint32_t uiFlushCount = 0;
 static uint32_t uiLastPerfMillis = 0;
@@ -658,6 +667,143 @@ static void setupTimerScreenInteractions()
 
     lv_obj_add_flag(ui_timer, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(ui_timer, showCountdownTimer, LV_EVENT_ALL, NULL);
+}
+
+static void stopwatchUpdateUi()
+{
+    if (stopwatchTimeLabel != NULL) {
+        uint32_t totalCentiseconds = stopwatchElapsedMs / 10;
+        uint32_t minutes = totalCentiseconds / 6000;
+        uint32_t seconds = (totalCentiseconds / 100) % 60;
+        uint32_t centiseconds = totalCentiseconds % 100;
+        char timeText[10];
+        lv_snprintf(timeText, sizeof(timeText), "%02lu:%02lu.%02lu",
+                    (unsigned long)minutes, (unsigned long)seconds, (unsigned long)centiseconds);
+        lv_label_set_text(stopwatchTimeLabel, timeText);
+    }
+
+    if (stopwatchStatusLabel != NULL) {
+        lv_label_set_text(stopwatchStatusLabel, stopwatchRunning ? "Running" : "Stopped");
+    }
+
+    if (stopwatchStartLabel != NULL) {
+        lv_label_set_text(stopwatchStartLabel, stopwatchRunning ? "Pause" : "Start");
+    }
+}
+
+static void stopwatchTick(lv_timer_t * timer)
+{
+    (void)timer;
+    if (!stopwatchRunning) return;
+
+    uint32_t now = millis();
+    stopwatchElapsedMs += now - stopwatchLastTickMs;
+    stopwatchLastTickMs = now;
+    stopwatchUpdateUi();
+}
+
+static void stopwatchCloseEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    if (stopwatchLvTimer != NULL) {
+        lv_timer_del(stopwatchLvTimer);
+        stopwatchLvTimer = NULL;
+    }
+
+    lv_obj_t * oldScreen = stopwatchScreen;
+    stopwatchScreen = NULL;
+    stopwatchTimeLabel = NULL;
+    stopwatchStatusLabel = NULL;
+    stopwatchStartLabel = NULL;
+    stopwatchRunning = false;
+
+    lv_scr_load_anim(ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
+    if (oldScreen != NULL) lv_obj_del_async(oldScreen);
+}
+
+static void stopwatchStartPauseEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    stopwatchRunning = !stopwatchRunning;
+    stopwatchLastTickMs = millis();
+    stopwatchUpdateUi();
+}
+
+static void stopwatchResetEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    stopwatchRunning = false;
+    stopwatchElapsedMs = 0;
+    stopwatchUpdateUi();
+}
+
+static void showStopwatch(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    if (stopwatchScreen != NULL) {
+        lv_scr_load_anim(stopwatchScreen, LV_SCR_LOAD_ANIM_FADE_ON, 80, 0, false);
+        return;
+    }
+
+    stopwatchScreen = lv_obj_create(NULL);
+    lv_obj_clear_flag(stopwatchScreen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(stopwatchScreen, lv_color_hex(0x010409), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(stopwatchScreen, lv_color_hex(0x14283A), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(stopwatchScreen, LV_GRAD_DIR_VER, LV_PART_MAIN);
+
+    lv_obj_t * closeBtn = lv_btn_create(stopwatchScreen);
+    lv_obj_set_size(closeBtn, 28, 28);
+    lv_obj_align(closeBtn, LV_ALIGN_TOP_LEFT, 52, 22);
+    lv_obj_set_style_radius(closeBtn, 14, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(closeBtn, lv_color_hex(0x1D2B36), LV_PART_MAIN);
+    lv_obj_add_event_cb(closeBtn, stopwatchCloseEvent, LV_EVENT_ALL, NULL);
+    lv_obj_t * closeLabel = lv_label_create(closeBtn);
+    lv_label_set_text(closeLabel, LV_SYMBOL_CLOSE);
+    lv_obj_center(closeLabel);
+
+    lv_obj_t * title = lv_label_create(stopwatchScreen);
+    lv_obj_set_width(title, 140);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 12);
+    lv_label_set_text(title, "Stopwatch");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
+
+    stopwatchStatusLabel = lv_label_create(stopwatchScreen);
+    lv_obj_set_width(stopwatchStatusLabel, 120);
+    lv_obj_align(stopwatchStatusLabel, LV_ALIGN_TOP_MID, 0, 38);
+    lv_obj_set_style_text_color(stopwatchStatusLabel, lv_color_hex(0xB8D8E7), LV_PART_MAIN);
+    lv_obj_set_style_text_align(stopwatchStatusLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(stopwatchStatusLabel, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    stopwatchTimeLabel = lv_label_create(stopwatchScreen);
+    lv_obj_set_width(stopwatchTimeLabel, 190);
+    lv_obj_align(stopwatchTimeLabel, LV_ALIGN_CENTER, 0, -16);
+    lv_obj_set_style_text_color(stopwatchTimeLabel, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(stopwatchTimeLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(stopwatchTimeLabel, &lv_font_montserrat_36, LV_PART_MAIN);
+
+    stopwatchStartLabel = createCountdownButton(stopwatchScreen, "Start", -42, 74, 76, 36, stopwatchStartPauseEvent);
+    createCountdownButton(stopwatchScreen, "Reset", 42, 74, 76, 36, stopwatchResetEvent);
+
+    if (stopwatchLvTimer == NULL) {
+        stopwatchLvTimer = lv_timer_create(stopwatchTick, 50, NULL);
+    }
+
+    stopwatchUpdateUi();
+    lv_scr_load_anim(stopwatchScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 180, 0, false);
+}
+
+static void setupStopwatchScreenInteractions()
+{
+    if (ui_alarm == NULL) return;
+
+    lv_obj_add_flag(ui_alarm, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(ui_alarm, showStopwatch, LV_EVENT_ALL, NULL);
 }
 
 static lv_obj_t * wifiOptionObj(uint8_t index)
@@ -1538,6 +1684,7 @@ void setup()
     applyWatchTheme();
     styleWifiList();
     setupTimerScreenInteractions();
+    setupStopwatchScreenInteractions();
     setupGameScreenInteractions();
     setupPerformanceOverlay();
     setupBrightnessControls();
