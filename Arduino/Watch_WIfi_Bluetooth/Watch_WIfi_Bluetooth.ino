@@ -311,6 +311,16 @@ static lv_obj_t * game2048Tiles[4][4];
 static uint16_t game2048Board[4][4];
 static uint32_t game2048Score = 0;
 
+static lv_obj_t * countdownScreen = NULL;
+static lv_obj_t * countdownTimeLabel = NULL;
+static lv_obj_t * countdownStatusLabel = NULL;
+static lv_obj_t * countdownStartLabel = NULL;
+static lv_timer_t * countdownLvTimer = NULL;
+static uint32_t countdownDurationSec = 300;
+static uint32_t countdownRemainingSec = 300;
+static uint32_t countdownLastTickMs = 0;
+static bool countdownRunning = false;
+
 static lv_obj_t * uiPerfLabel = NULL;
 static uint32_t uiFlushCount = 0;
 static uint32_t uiLastPerfMillis = 0;
@@ -453,6 +463,201 @@ static void applyWatchTheme()
         lv_obj_set_style_arc_color(ui_Spinner1, lv_color_hex(0x23414B), LV_PART_MAIN);
         lv_obj_set_style_arc_color(ui_Spinner1, lv_color_hex(0x4EF5B1), LV_PART_INDICATOR);
     }
+}
+
+static void countdownUpdateUi()
+{
+    if (countdownTimeLabel != NULL) {
+        uint32_t minutes = countdownRemainingSec / 60;
+        uint32_t seconds = countdownRemainingSec % 60;
+        char timeText[8];
+        lv_snprintf(timeText, sizeof(timeText), "%02lu:%02lu",
+                    (unsigned long)minutes, (unsigned long)seconds);
+        lv_label_set_text(countdownTimeLabel, timeText);
+    }
+
+    if (countdownStatusLabel != NULL) {
+        if (countdownRemainingSec == 0) {
+            lv_label_set_text(countdownStatusLabel, "Done");
+        } else {
+            lv_label_set_text(countdownStatusLabel, countdownRunning ? "Running" : "Ready");
+        }
+    }
+
+    if (countdownStartLabel != NULL) {
+        lv_label_set_text(countdownStartLabel, countdownRunning ? "Pause" : "Start");
+    }
+}
+
+static void countdownTick(lv_timer_t * timer)
+{
+    (void)timer;
+    if (!countdownRunning) return;
+
+    uint32_t now = millis();
+    uint32_t elapsedSec = (now - countdownLastTickMs) / 1000;
+    if (elapsedSec == 0) return;
+
+    countdownLastTickMs += elapsedSec * 1000;
+    if (elapsedSec >= countdownRemainingSec) {
+        countdownRemainingSec = 0;
+        countdownRunning = false;
+    } else {
+        countdownRemainingSec -= elapsedSec;
+    }
+
+    countdownUpdateUi();
+}
+
+static void countdownCloseEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    if (countdownLvTimer != NULL) {
+        lv_timer_del(countdownLvTimer);
+        countdownLvTimer = NULL;
+    }
+
+    lv_obj_t * oldScreen = countdownScreen;
+    countdownScreen = NULL;
+    countdownTimeLabel = NULL;
+    countdownStatusLabel = NULL;
+    countdownStartLabel = NULL;
+    countdownRunning = false;
+
+    lv_scr_load_anim(ui_Screen3, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 180, 0, false);
+    if (oldScreen != NULL) lv_obj_del_async(oldScreen);
+}
+
+static void countdownAdjustMinutes(int8_t minutes)
+{
+    if (countdownRunning) return;
+
+    int32_t nextDuration = (int32_t)countdownDurationSec + ((int32_t)minutes * 60);
+    if (nextDuration < 60) nextDuration = 60;
+    if (nextDuration > 99 * 60) nextDuration = 99 * 60;
+
+    countdownDurationSec = (uint32_t)nextDuration;
+    countdownRemainingSec = countdownDurationSec;
+    countdownUpdateUi();
+}
+
+static void countdownMinusEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) countdownAdjustMinutes(-1);
+}
+
+static void countdownPlusEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) == LV_EVENT_CLICKED) countdownAdjustMinutes(1);
+}
+
+static void countdownStartPauseEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    if (countdownRemainingSec == 0) {
+        countdownRemainingSec = countdownDurationSec;
+    }
+
+    countdownRunning = !countdownRunning;
+    countdownLastTickMs = millis();
+    countdownUpdateUi();
+}
+
+static void countdownResetEvent(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    countdownRunning = false;
+    countdownRemainingSec = countdownDurationSec;
+    countdownUpdateUi();
+}
+
+static lv_obj_t * createCountdownButton(lv_obj_t * parent, const char * text, int16_t x, int16_t y, int16_t w,
+                                        int16_t h, lv_event_cb_t eventCb)
+{
+    lv_obj_t * button = lv_btn_create(parent);
+    lv_obj_set_size(button, w, h);
+    lv_obj_align(button, LV_ALIGN_CENTER, x, y);
+    themeGlassButton(button);
+    lv_obj_add_event_cb(button, eventCb, LV_EVENT_ALL, NULL);
+
+    lv_obj_t * label = lv_label_create(button);
+    lv_label_set_text(label, text);
+    lv_obj_set_style_text_color(label, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_12, LV_PART_MAIN);
+    lv_obj_center(label);
+
+    return label;
+}
+
+static void showCountdownTimer(lv_event_t * e)
+{
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+
+    if (countdownScreen != NULL) {
+        lv_scr_load_anim(countdownScreen, LV_SCR_LOAD_ANIM_FADE_ON, 80, 0, false);
+        return;
+    }
+
+    countdownScreen = lv_obj_create(NULL);
+    lv_obj_clear_flag(countdownScreen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(countdownScreen, lv_color_hex(0x010409), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_color(countdownScreen, lv_color_hex(0x14283A), LV_PART_MAIN);
+    lv_obj_set_style_bg_grad_dir(countdownScreen, LV_GRAD_DIR_VER, LV_PART_MAIN);
+
+    lv_obj_t * closeBtn = lv_btn_create(countdownScreen);
+    lv_obj_set_size(closeBtn, 28, 28);
+    lv_obj_align(closeBtn, LV_ALIGN_TOP_LEFT, 52, 22);
+    lv_obj_set_style_radius(closeBtn, 14, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(closeBtn, lv_color_hex(0x1D2B36), LV_PART_MAIN);
+    lv_obj_add_event_cb(closeBtn, countdownCloseEvent, LV_EVENT_ALL, NULL);
+    lv_obj_t * closeLabel = lv_label_create(closeBtn);
+    lv_label_set_text(closeLabel, LV_SYMBOL_CLOSE);
+    lv_obj_center(closeLabel);
+
+    lv_obj_t * title = lv_label_create(countdownScreen);
+    lv_obj_set_width(title, 120);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 12);
+    lv_label_set_text(title, "Timer");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(title, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_18, LV_PART_MAIN);
+
+    countdownStatusLabel = lv_label_create(countdownScreen);
+    lv_obj_set_width(countdownStatusLabel, 120);
+    lv_obj_align(countdownStatusLabel, LV_ALIGN_TOP_MID, 0, 38);
+    lv_obj_set_style_text_color(countdownStatusLabel, lv_color_hex(0xB8D8E7), LV_PART_MAIN);
+    lv_obj_set_style_text_align(countdownStatusLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(countdownStatusLabel, &lv_font_montserrat_10, LV_PART_MAIN);
+
+    countdownTimeLabel = lv_label_create(countdownScreen);
+    lv_obj_set_width(countdownTimeLabel, 168);
+    lv_obj_align(countdownTimeLabel, LV_ALIGN_CENTER, 0, -20);
+    lv_obj_set_style_text_color(countdownTimeLabel, lv_color_hex(0xF4FAFF), LV_PART_MAIN);
+    lv_obj_set_style_text_align(countdownTimeLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+    lv_obj_set_style_text_font(countdownTimeLabel, &lv_font_montserrat_40, LV_PART_MAIN);
+
+    createCountdownButton(countdownScreen, "-", -58, 38, 42, 34, countdownMinusEvent);
+    createCountdownButton(countdownScreen, "+", 58, 38, 42, 34, countdownPlusEvent);
+    countdownStartLabel = createCountdownButton(countdownScreen, "Start", -40, 84, 72, 34, countdownStartPauseEvent);
+    createCountdownButton(countdownScreen, "Reset", 44, 84, 72, 34, countdownResetEvent);
+
+    if (countdownLvTimer == NULL) {
+        countdownLvTimer = lv_timer_create(countdownTick, 250, NULL);
+    }
+
+    countdownUpdateUi();
+    lv_scr_load_anim(countdownScreen, LV_SCR_LOAD_ANIM_MOVE_LEFT, 180, 0, false);
+}
+
+static void setupTimerScreenInteractions()
+{
+    if (ui_timer == NULL) return;
+
+    lv_obj_add_flag(ui_timer, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(ui_timer, showCountdownTimer, LV_EVENT_ALL, NULL);
 }
 
 static lv_obj_t * wifiOptionObj(uint8_t index)
@@ -1332,6 +1537,7 @@ void setup()
     ui_init();
     applyWatchTheme();
     styleWifiList();
+    setupTimerScreenInteractions();
     setupGameScreenInteractions();
     setupPerformanceOverlay();
     setupBrightnessControls();
